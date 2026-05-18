@@ -1,0 +1,16 @@
+{
+  "project_id": "team-a",
+  "user_id": "alice",
+  "model_uri": "s3://models/qwen2.5-7b-instruct",
+  "task_type": "text-generation",
+  "target_hardware": "H100",
+  "optimization_goal": {
+    "quantization": ["int4", "int8"],
+    "max_accuracy_drop": 0.01,
+    "min_speedup": 2.0,
+    "max_memory_gb": 40
+  },
+  "eval_dataset_id": "eval-internal-chat-v2",
+  "calibration_dataset_id": "calib-general-v1"
+}
+

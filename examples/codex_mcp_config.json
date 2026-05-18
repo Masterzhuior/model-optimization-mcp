@@ -1,0 +1,12 @@
+{
+  "mcp_servers": {
+    "model-optimization": {
+      "command": "model-optimization-mcp",
+      "args": ["stdio"],
+      "env": {
+        "MOMCP_HOME": "/srv/model-optimization-mcp"
+      }
+    }
+  }
+}
+

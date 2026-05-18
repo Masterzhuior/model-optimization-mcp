@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "model-optimization-mcp"
+version = "0.1.0"
+description = "Enterprise MCP server for GPU resource governance, model quantization, evaluation, benchmarking, and onboarding workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Model Optimization MCP Contributors" }
+]
+keywords = [
+  "mcp",
+  "model-context-protocol",
+  "gpu",
+  "quantization",
+  "llm",
+  "inference",
+  "benchmark",
+  "model-onboarding"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: System :: Distributed Computing"
+]
+dependencies = [
+  "mcp>=1.8.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6.0",
+  "mypy>=1.10"
+]
+gpu = [
+  "nvidia-ml-py>=12.535.133"
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/model-optimization-mcp"
+Documentation = "https://github.com/your-org/model-optimization-mcp/tree/main/docs"
+Issues = "https://github.com/your-org/model-optimization-mcp/issues"
+
+[project.scripts]
+model-optimization-mcp = "model_optimization_mcp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/model_optimization_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+warn_return_any = true
+exclude = ["build", "dist"]

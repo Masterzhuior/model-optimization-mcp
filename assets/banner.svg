@@ -1,0 +1,42 @@
+<svg width="1200" height="360" viewBox="0 0 1200 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#07111F"/>
+      <stop offset="0.52" stop-color="#12343B"/>
+      <stop offset="1" stop-color="#E1A95F"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(895 95) rotate(132) scale(330 230)">
+      <stop stop-color="#F4D35E" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#F4D35E" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="360" rx="34" fill="url(#bg)"/>
+  <rect width="1200" height="360" rx="34" fill="url(#glow)"/>
+  <path d="M90 278C240 120 330 314 462 184C612 36 710 250 860 108C963 10 1050 70 1120 126" stroke="#F4D35E" stroke-opacity="0.38" stroke-width="3"/>
+  <path d="M80 292C235 150 350 330 492 205C634 80 721 276 878 146C985 58 1063 105 1134 158" stroke="#88D498" stroke-opacity="0.45" stroke-width="2"/>
+  <g filter="url(#blur)" opacity="0.5">
+    <circle cx="950" cy="245" r="68" fill="#88D498"/>
+    <circle cx="1020" cy="150" r="52" fill="#F4D35E"/>
+  </g>
+  <g transform="translate(92 76)">
+    <rect x="0" y="0" width="166" height="166" rx="32" fill="#F7F3E3" fill-opacity="0.08" stroke="#F7F3E3" stroke-opacity="0.28"/>
+    <rect x="34" y="34" width="98" height="98" rx="18" stroke="#F4D35E" stroke-width="8"/>
+    <path d="M62 86L78 102L108 66" stroke="#88D498" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M22 54H0M22 84H0M22 114H0M166 54H144M166 84H144M166 114H144M54 22V0M84 22V0M114 22V0M54 166V144M84 166V144M114 166V144" stroke="#F7F3E3" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <text x="300" y="135" fill="#F7F3E3" font-family="Georgia, 'Times New Roman', serif" font-size="56" font-weight="700">Model Optimization MCP</text>
+  <text x="303" y="188" fill="#F7F3E3" fill-opacity="0.86" font-family="'Segoe UI', Verdana, sans-serif" font-size="25">A governed GPU lab for local coding agents</text>
+  <text x="303" y="236" fill="#F4D35E" font-family="'Segoe UI', Verdana, sans-serif" font-size="22">leases · workspaces · quantization · eval · benchmark · artifacts</text>
+  <g transform="translate(305 270)">
+    <rect width="172" height="34" rx="17" fill="#07111F" fill-opacity="0.58"/>
+    <text x="20" y="23" fill="#88D498" font-family="'Segoe UI', Verdana, sans-serif" font-size="15">MCP Server</text>
+    <rect x="192" width="150" height="34" rx="17" fill="#07111F" fill-opacity="0.58"/>
+    <text x="212" y="23" fill="#F4D35E" font-family="'Segoe UI', Verdana, sans-serif" font-size="15">GPU Governance</text>
+    <rect x="362" width="162" height="34" rx="17" fill="#07111F" fill-opacity="0.58"/>
+    <text x="382" y="23" fill="#F7F3E3" font-family="'Segoe UI', Verdana, sans-serif" font-size="15">Agent Friendly</text>
+  </g>
+</svg>
+

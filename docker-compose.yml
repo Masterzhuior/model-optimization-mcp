@@ -1,0 +1,11 @@
+services:
+  model-optimization-mcp:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MOMCP_HOME: /data
+      MOMCP_ALLOW_SIMULATED_GPUS: "true"
+    volumes:
+      - ./.momcp:/data
+
