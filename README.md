@@ -13,6 +13,8 @@
   ·
   <a href="docs/enterprise-blueprint.md">Enterprise Blueprint</a>
   ·
+  <a href="docs/mediatek-neuropilot-comparable-design.md">MediaTek Research</a>
+  ·
   <a href="docs/architecture.md">Architecture</a>
   ·
   <a href="docs/tool-reference.md">Tool Reference</a>
@@ -195,6 +197,7 @@ src/model_optimization_mcp/
     artifacts.py             artifact registry and reports
 docs/
   enterprise-blueprint.md
+  mediatek-neuropilot-comparable-design.md
   architecture.md
   tool-reference.md
   agent-skill-pack.md
@@ -227,4 +230,3 @@ model-optimization-mcp doctor
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
