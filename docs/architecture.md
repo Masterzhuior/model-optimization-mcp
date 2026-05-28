@@ -1,128 +1,169 @@
 # Architecture
 
-Model Optimization MCP is designed as a governed execution boundary between local coding agents and shared GPU servers.
+Model Optimization MCP is now modeled as a hybrid local-skill plus server-side MCP control plane.
 
-## Design Goals
-
-- External-agent friendly: Claude Code, Codex, Cursor, or an internal agent can use the same tools.
-- Safe by default: no arbitrary shell, no arbitrary filesystem, no direct GPU selection by agents.
-- Multi-user ready: every GPU job is tied to project, user, lease, workspace, and job metadata.
-- Async-first: long-running quantization, evaluation, benchmark, compile, and profile jobs return `job_id`.
-- Reproducible: artifacts preserve lineage across model, dataset, recipe, runtime, job, and run.
-
-## Component Diagram
+## System View
 
 ```mermaid
 flowchart TB
-    subgraph Client["Engineer Laptop"]
-      A["Claude Code / Codex / Cursor"]
-      S["Skill Pack / MCP Config"]
+    subgraph Local["Engineer Laptop"]
+      Agent["Claude Code / Codex / Cursor"]
+      SkillPack["Skill Pack<br/>intent · recipe · analysis · report"]
     end
 
-    subgraph MCP["Model Optimization MCP Server"]
-      T["FastMCP Tools / Resources / Prompts"]
-      P["Policy Layer"]
-      R["Resource Manager"]
-      W["Workspace Manager"]
-      J["Job Manager"]
-      O["Onboarding Manager"]
-      AR["Artifact Manager"]
+    subgraph Control["MCP Control Plane"]
+      FastMCP["FastMCP Server"]
+      Intent["Intent Planner"]
+      Skills["Skill Orchestrator"]
+      Recipes["Recipe Store"]
+      CP["Compute Control Plane"]
+      RM["Resource Manager"]
+      Jobs["Job Manager"]
+      Artifacts["Artifact Registry"]
+      Farm["Device Farm Manager"]
       DB["Metadata Store"]
     end
 
-    subgraph GPU["GPU Server / Cluster"]
-      G["nvidia-smi / DCGM"]
-      EX["Docker / Slurm / K8s / Ray Adapter"]
-      Q["Quantization Tools"]
-      E["Eval + Benchmark"]
-      C["Compiler / Serving Backend"]
+    subgraph Compute["Compute Plane"]
+      PoolA["GPU Pool H100"]
+      PoolB["GPU Pool A100"]
+      Worker["GPU Worker Nodes"]
+      Tools["PTQ / AWQ / GPTQ / Eval / Benchmark"]
     end
 
-    A --> S --> T
-    T --> P
-    T --> R
-    T --> W
-    T --> J
-    T --> O
-    T --> AR
-    R --> G
-    J --> EX
-    EX --> Q
-    EX --> E
-    EX --> C
-    R --> DB
-    W --> DB
-    J --> DB
-    O --> DB
-    AR --> DB
+    subgraph Devices["Device Farm"]
+      Android["Android Devices"]
+      SoC["SoC Matrix"]
+      KPI["KPI Collector"]
+    end
+
+    Agent --> SkillPack
+    Agent --> FastMCP
+    FastMCP --> Intent
+    FastMCP --> Skills
+    FastMCP --> Recipes
+    FastMCP --> CP
+    FastMCP --> RM
+    FastMCP --> Jobs
+    FastMCP --> Artifacts
+    FastMCP --> Farm
+    Intent --> DB
+    Skills --> DB
+    Recipes --> DB
+    CP --> DB
+    RM --> DB
+    Jobs --> DB
+    Artifacts --> DB
+    Farm --> DB
+    CP --> PoolA
+    CP --> PoolB
+    PoolA --> Worker
+    PoolB --> Worker
+    Worker --> Tools
+    Farm --> Android
+    Farm --> SoC
+    Android --> KPI
+    KPI --> Farm
 ```
 
-## Core Concepts
+## Main Services
 
-### Lease
+| Service | Responsibility |
+| --- | --- |
+| `IntentPlanner` | Extract intent, ask required questions, synthesize and revise recipes. |
+| `SkillOrchestrator` | Generate hybrid plans where steps can be skills, MCP tools, approvals, or external systems. |
+| `ControlPlane` | Manage compute pools, GPU worker nodes, capacity snapshots, pool selection, execution plans. |
+| `ResourceManager` | Manage leases, queues, local GPU snapshots, usage, orphan scans. |
+| `JobManager` | Run approved async task templates. Simulation by default, replaceable in production. |
+| `DeviceFarm` | Build device matrices, submit device tests, generate KPI reports, analyze regressions. |
+| `ArtifactManager` | Track artifacts, reports, stages, and lineage. |
 
-A lease is a server-issued resource token. GPU jobs must include `lease_id`. The lease records:
+## Data Model
 
-- project and user,
-- purpose,
-- GPU UUIDs,
-- TTL,
-- CPU/RAM/disk requirements,
-- scheduling policy.
-
-### Workspace
-
-A workspace is an isolated filesystem root managed by the server:
+Core collections:
 
 ```text
-workspaces/{project_id}/{run_id}/
-  model/
-  dataset/
-  configs/
-  logs/
-  outputs/
-  reports/
+intake_sessions
+recipe_specs
+workflow_plans
+agent_skills
+compute_pools
+compute_nodes
+leases
+jobs
+workspaces
+artifacts
+device_pools
+devices
+device_test_runs
+kpi_reports
+recipe_feedback
 ```
 
-Tools can only read/write inside managed workspaces. This prevents local agents from wandering through arbitrary server paths.
+## Recipe-First Execution
 
-### Job
-
-A job is an asynchronous execution of a whitelisted task template. The default runner is simulated, but the shape mirrors production:
+The platform should not run quantization directly from a vague prompt. It should first create a recipe:
 
 ```text
-created -> admitted -> resource_allocated -> preparing_workspace
--> pulling_image -> running -> collecting_metrics
--> uploading_artifacts -> succeeded
+utterance -> intake session -> questions -> recipe draft -> validation -> approval -> execution plan
 ```
 
-### Artifact
+This makes experiments reproducible and reviewable.
 
-Artifacts include quantized models, eval results, benchmark results, profiler traces, compiled models, serving bundles, and reports. Each artifact records lineage.
+## Multi-GPU-Server Model
 
-## Production Adapter Points
+The control plane models multiple GPU servers as `compute_nodes` under `compute_pools`.
 
-The repository is intentionally modular:
-
-- Replace `JobManager._execute_job` with Docker, Slurm, Kubernetes, Ray, or an internal runner.
-- Replace `JsonStateStore` with Postgres or another metadata service.
-- Replace staging markers in `WorkspaceManager` with S3/NFS/HF mirror adapters.
-- Add policy checks before `request_resource_lease`, `stage_dataset`, `export_model`, and `promote_artifact`.
-- Add real task templates that invoke approved internal scripts.
-
-## Why Not Expose Shell?
-
-An external local agent is not a security boundary. Even well-intentioned agents can produce unsafe commands, access unauthorized paths, or disrupt other users. This server exposes structured operations instead:
+Example:
 
 ```text
-run_quantization(model_id, recipe_id, lease_id, calibration_artifact_id)
+gpu-lab-h100
+  sim-h100-01: H100 x2
+  sim-h100-02: H100 x8
+
+gpu-lab-a100
+  sim-a100-01: A100 x2
 ```
 
-not:
+Pool selection can consider:
+
+- required capability,
+- region,
+- GPU type,
+- GPU memory,
+- queue depth,
+- runtime environment,
+- project quota,
+- priority.
+
+The current repo includes simulation logic. Production should replace it with a real scheduler adapter.
+
+## Device-Farm Feedback
+
+For mobile or edge deployment, server-side benchmark is not enough. The flow is:
 
 ```text
-ssh gpu-box "python quantize.py ..."
+quantized artifact
+  -> package
+  -> device matrix
+  -> KPI run
+  -> KPI report
+  -> regression analysis
+  -> recipe feedback
+  -> recipe revision
 ```
 
-The server decides what is allowed, how it is scheduled, where outputs go, and how results are recorded.
+The recipe revision can change calibration samples, fallback method, mixed precision strategy, sensitive-layer exclusion, backend selection, or device-specific packaging.
+
+## Adapter Points
+
+Replace these for production:
+
+- `JsonStateStore` -> Postgres / internal metadata service.
+- `JobManager` simulation -> Docker / Slurm / K8s / Ray / internal GPU job API.
+- `WorkspaceManager` reference staging -> S3 / NFS / model registry / dataset registry.
+- `DeviceFarm` simulation -> real phone farm API.
+- Inline policy checks -> SSO/OIDC, approval service, quota service.
+
+The public MCP tool contracts can stay stable while adapters evolve.
 

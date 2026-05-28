@@ -1,10 +1,11 @@
 # Model Onboarding Operator Skill
 
-Use this skill when the user asks to onboard a model, run inference optimization, quantize a model, evaluate a quantized model, benchmark serving performance, inspect GPU resources, or generate a model optimization report.
+Use this skill when the user asks to onboard a model, run inference optimization, quantize a model, evaluate a quantized model, benchmark serving performance, inspect GPU resources, run device-farm validation, or generate a model optimization report.
 
 ## Operating Rules
 
-- Prefer the `model-optimization-mcp` server tools.
+- Prefer the `model-optimization-mcp` server tools for shared state and remote execution.
+- Use local skills for intent intake, recipe explanation, KPI regression analysis, and report writing.
 - Do not SSH into GPU servers for model optimization work.
 - Do not run arbitrary shell commands for quantization, evaluation, benchmark, profiling, or artifact export.
 - Do not choose GPU IDs manually from `nvidia-smi`.
@@ -18,16 +19,19 @@ Use this skill when the user asks to onboard a model, run inference optimization
 ## Preferred Guided Workflow
 
 1. Call `health_check`.
-2. Call `start_model_onboarding`.
-3. Call `run_onboarding_stage` for `inspect_model`.
-4. Call `get_next_recommended_action`.
-5. Before GPU stages, call `estimate_resource_need`.
-6. Call `request_resource_lease`.
-7. Call `run_onboarding_stage` with `lease_id`.
-8. Poll `get_job_status` until terminal.
-9. Continue with `get_next_recommended_action`.
-10. Generate a final report with `generate_onboarding_report`.
-11. Release the lease with `release_resource_lease` when no longer needed.
+2. Call `start_quantization_intake`.
+3. Ask required questions returned by MCP.
+4. Call `answer_intake_questions`.
+5. Call `synthesize_quantization_recipe`.
+6. Call `validate_quantization_recipe`.
+7. Call `generate_hybrid_workflow_plan`.
+8. Ask for approval when required, then call `approve_quantization_recipe`.
+9. Call `select_compute_pool` and `create_execution_plan_from_recipe`.
+10. Before GPU stages, call `estimate_resource_need` and `request_resource_lease`.
+11. Run PTQ/eval/benchmark tools.
+12. If target is mobile/edge, run device-farm tools and KPI analysis.
+13. Generate a final report with `generate_onboarding_report`.
+14. Release the lease with `release_resource_lease` when no longer needed.
 
 ## Retry Strategy
 
@@ -62,4 +66,3 @@ Summarize:
 - throughput/latency/memory changes,
 - report URI,
 - remaining risks or required approvals.
-

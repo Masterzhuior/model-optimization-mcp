@@ -52,6 +52,11 @@ def build_mcp(context: AppContext | None = None) -> Any:
             {
                 "name": "default-model-onboarding",
                 "stages": [
+                    "start_quantization_intake",
+                    "answer_intake_questions",
+                    "synthesize_quantization_recipe",
+                    "validate_quantization_recipe",
+                    "generate_hybrid_workflow_plan",
                     "start_model_onboarding",
                     "inspect_model",
                     "prepare_calibration",
@@ -63,9 +68,15 @@ def build_mcp(context: AppContext | None = None) -> Any:
                     "quantized_eval",
                     "benchmark_candidates",
                     "compare",
+                    "submit_device_farm_test",
+                    "generate_kpi_report",
+                    "analyze_kpi_regression",
+                    "create_recipe_revision_from_feedback",
                     "generate_onboarding_report",
                 ],
                 "rules": [
+                    "Use local skills for ambiguous reasoning, requirement clarification, and human-facing explanations.",
+                    "Use MCP tools for shared state, resource allocation, remote execution, artifacts, and auditable decisions.",
                     "Never use arbitrary shell execution for GPU work.",
                     "GPU stages require a server-issued lease_id.",
                     "If a tool returns waiting_for_approval or waiting_for_resource, stop and surface it.",
@@ -98,6 +109,31 @@ def build_mcp(context: AppContext | None = None) -> Any:
     def quant_recipe_catalog() -> str:
         """Available quantization recipes."""
         return _json({"recipes": ctx.store.list("recipes")})
+
+    @mcp.resource("catalog://agent-skills")
+    def agent_skill_catalog() -> str:
+        """Available local/hybrid skills for agent-side orchestration."""
+        return _json(ctx.skill_orchestrator.list_skills())
+
+    @mcp.resource("catalog://compute-pools")
+    def compute_pool_catalog() -> str:
+        """Available GPU compute pools and worker nodes."""
+        return _json(
+            {
+                "pools": ctx.control_plane.list_compute_pools()["pools"],
+                "nodes": ctx.control_plane.list_compute_nodes()["nodes"],
+            }
+        )
+
+    @mcp.resource("catalog://device-farm")
+    def device_farm_catalog() -> str:
+        """Available device pools and devices."""
+        return _json(
+            {
+                "device_pools": ctx.device_farm.list_device_pools()["device_pools"],
+                "devices": ctx.device_farm.list_devices()["devices"],
+            }
+        )
 
     @mcp.resource("run://{run_id}")
     def onboarding_run_resource(run_id: str) -> str:
@@ -154,9 +190,239 @@ or a business tradeoff such as accuracy drop above threshold.
         )
 
     @mcp.tool()
+    def list_agent_skills(executor: str | None = None) -> dict[str, Any]:
+        """List local/hybrid skills that can participate in the workflow."""
+        return call(
+            lambda: ok(
+                "Agent skills listed.",
+                data=ctx.skill_orchestrator.list_skills(executor=executor),
+            )
+        )
+
+    @mcp.tool()
+    def get_agent_skill(skill_id: str) -> dict[str, Any]:
+        """Get one local/hybrid skill contract."""
+        return call(
+            lambda: ok(
+                "Agent skill loaded.",
+                data=ctx.skill_orchestrator.get_skill(skill_id=skill_id),
+            )
+        )
+
+    @mcp.tool()
+    def generate_hybrid_workflow_plan(
+        recipe_id: str | None = None,
+        session_id: str | None = None,
+        include_device_farm: bool | None = None,
+    ) -> dict[str, Any]:
+        """Generate a workflow plan whose steps may be local skills, MCP tools, human approvals, or external systems."""
+        return call(
+            lambda: ok(
+                "Hybrid workflow plan generated.",
+                data=ctx.skill_orchestrator.generate_hybrid_plan(
+                    recipe_id=recipe_id,
+                    session_id=session_id,
+                    include_device_farm=include_device_farm,
+                ),
+            )
+        )
+
+    @mcp.tool()
     def validate_runtime_env(env_id: str) -> dict[str, Any]:
         """Validate that a runtime environment is registered and ready."""
         return call(lambda: _validate_runtime_env(ctx, env_id))
+
+    @mcp.tool()
+    def start_quantization_intake(
+        project_id: str,
+        user_id: str,
+        utterance: str,
+        defaults: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Start requirement intake from a short natural-language quantization request."""
+        return call(
+            lambda: ok(
+                "Quantization intake started.",
+                data=ctx.intent_planner.start_intake(
+                    project_id=project_id,
+                    user_id=user_id,
+                    utterance=utterance,
+                    defaults=defaults,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def answer_intake_questions(session_id: str, answers: dict[str, Any]) -> dict[str, Any]:
+        """Answer clarification questions and update the intake session."""
+        return call(
+            lambda: ok(
+                "Intake answers recorded.",
+                data=ctx.intent_planner.answer_questions(session_id=session_id, answers=answers),
+            )
+        )
+
+    @mcp.tool()
+    def synthesize_quantization_recipe(session_id: str, force: bool = False) -> dict[str, Any]:
+        """Create an auditable draft recipe from a completed intake session."""
+        return call(
+            lambda: ok(
+                "Recipe synthesis processed.",
+                data=ctx.intent_planner.synthesize_recipe(session_id=session_id, force=force),
+            )
+        )
+
+    @mcp.tool()
+    def validate_quantization_recipe(recipe_id: str) -> dict[str, Any]:
+        """Validate a recipe before expensive GPU execution."""
+        return call(
+            lambda: ok(
+                "Recipe validation processed.",
+                data=ctx.intent_planner.validate_recipe(recipe_id=recipe_id),
+            )
+        )
+
+    @mcp.tool()
+    def approve_quantization_recipe(
+        recipe_id: str,
+        approver: str,
+        approval_note: str | None = None,
+    ) -> dict[str, Any]:
+        """Approve a validated recipe for remote execution."""
+        return call(
+            lambda: ok(
+                "Recipe approval processed.",
+                data=ctx.intent_planner.approve_recipe(
+                    recipe_id=recipe_id,
+                    approver=approver,
+                    approval_note=approval_note,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def list_quantization_recipes(
+        project_id: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List auditable recipe specs created from intake sessions or feedback loops."""
+        return call(
+            lambda: ok(
+                "Recipe specs listed.",
+                data=ctx.intent_planner.list_recipes(project_id=project_id, status=status),
+            )
+        )
+
+    @mcp.tool()
+    def list_compute_pools(
+        capability: str | None = None,
+        region: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List control-plane GPU compute pools."""
+        return call(
+            lambda: ok(
+                "Compute pools listed.",
+                data=ctx.control_plane.list_compute_pools(
+                    capability=capability,
+                    region=region,
+                    status=status,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def list_compute_nodes(pool_id: str | None = None, status: str | None = None) -> dict[str, Any]:
+        """List GPU worker nodes registered to the control plane."""
+        return call(
+            lambda: ok(
+                "Compute nodes listed.",
+                data=ctx.control_plane.list_compute_nodes(pool_id=pool_id, status=status),
+            )
+        )
+
+    @mcp.tool()
+    def register_compute_node(
+        pool_id: str,
+        hostname: str,
+        accelerators: list[dict[str, Any]],
+        cpu_cores: int,
+        ram_gb: int,
+        disk_gb: int,
+        labels: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Register a GPU worker node to a compute pool."""
+        return call(
+            lambda: ok(
+                "Compute node registered.",
+                data=ctx.control_plane.register_compute_node(
+                    pool_id=pool_id,
+                    hostname=hostname,
+                    accelerators=accelerators,
+                    cpu_cores=cpu_cores,
+                    ram_gb=ram_gb,
+                    disk_gb=disk_gb,
+                    labels=labels,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def heartbeat_compute_node(
+        node_id: str,
+        status: str = "ready",
+        metrics: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Update worker-node heartbeat and metrics."""
+        return call(
+            lambda: ok(
+                "Compute node heartbeat recorded.",
+                data=ctx.control_plane.heartbeat_compute_node(
+                    node_id=node_id,
+                    status=status,
+                    metrics=metrics,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def get_compute_capacity(pool_id: str | None = None) -> dict[str, Any]:
+        """Summarize control-plane compute capacity."""
+        return call(
+            lambda: ok(
+                "Compute capacity summarized.",
+                data=ctx.control_plane.capacity_snapshot(pool_id=pool_id),
+            )
+        )
+
+    @mcp.tool()
+    def select_compute_pool(
+        recipe_id: str | None = None,
+        requirements: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Select a compute pool for a recipe or resource requirement."""
+        return call(
+            lambda: ok(
+                "Compute pool selection completed.",
+                data=ctx.control_plane.select_compute_pool(
+                    recipe_id=recipe_id,
+                    requirements=requirements,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def create_execution_plan_from_recipe(recipe_id: str, plan_mode: str = "full-loop") -> dict[str, Any]:
+        """Create a control-plane execution plan from an approved recipe."""
+        return call(
+            lambda: ok(
+                "Execution plan created.",
+                data=ctx.control_plane.create_execution_plan_from_recipe(
+                    recipe_id=recipe_id,
+                    plan_mode=plan_mode,
+                ),
+            )
+        )
 
     @mcp.tool()
     def get_resource_snapshot(
@@ -752,6 +1018,161 @@ or a business tradeoff such as accuracy drop above threshold.
     ) -> dict[str, Any]:
         """Compare benchmark artifacts or all candidates in a run."""
         return call(lambda: _compare_benchmarks(ctx, baseline_benchmark_id, candidate_benchmark_ids, run_id))
+
+    @mcp.tool()
+    def list_device_pools(
+        platform: str | None = None,
+        region: str | None = None,
+    ) -> dict[str, Any]:
+        """List device-farm pools."""
+        return call(
+            lambda: ok(
+                "Device pools listed.",
+                data=ctx.device_farm.list_device_pools(platform=platform, region=region),
+            )
+        )
+
+    @mcp.tool()
+    def list_devices(
+        device_pool_id: str | None = None,
+        platform: str | None = None,
+        soc: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """List device-farm devices."""
+        return call(
+            lambda: ok(
+                "Devices listed.",
+                data=ctx.device_farm.list_devices(
+                    device_pool_id=device_pool_id,
+                    platform=platform,
+                    soc=soc,
+                    status=status,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def create_device_test_matrix(
+        device_pool_id: str,
+        socs: list[str] | None = None,
+        platforms: list[str] | None = None,
+        max_devices: int = 8,
+    ) -> dict[str, Any]:
+        """Create a device test matrix from pool filters."""
+        return call(
+            lambda: ok(
+                "Device test matrix created.",
+                data=ctx.device_farm.create_device_matrix(
+                    device_pool_id=device_pool_id,
+                    socs=socs,
+                    platforms=platforms,
+                    max_devices=max_devices,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def submit_device_farm_test(
+        artifact_id: str,
+        recipe_id: str,
+        device_pool_id: str,
+        test_matrix: list[dict[str, Any]],
+        kpi_targets: dict[str, Any] | None = None,
+        test_config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Push an artifact to the device farm and run KPI tests."""
+        return call(
+            lambda: ok(
+                "Device farm test submitted.",
+                data=ctx.device_farm.submit_device_test(
+                    artifact_id=artifact_id,
+                    recipe_id=recipe_id,
+                    device_pool_id=device_pool_id,
+                    test_matrix=test_matrix,
+                    kpi_targets=kpi_targets,
+                    test_config=test_config,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def get_device_test_status(device_test_run_id: str) -> dict[str, Any]:
+        """Get device-farm test status and raw KPI results."""
+        return call(
+            lambda: ok(
+                "Device test status collected.",
+                data=ctx.device_farm.get_device_test_status(device_test_run_id=device_test_run_id),
+            )
+        )
+
+    @mcp.tool()
+    def generate_kpi_report(
+        device_test_run_id: str,
+        acceptance: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Generate pass/fail KPI report from a device-farm run."""
+        return call(
+            lambda: ok(
+                "KPI report generated.",
+                data=ctx.device_farm.generate_kpi_report(
+                    device_test_run_id=device_test_run_id,
+                    acceptance=acceptance,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def analyze_kpi_regression(kpi_report_id: str) -> dict[str, Any]:
+        """Analyze KPI failures and propose recipe feedback strategy."""
+        return call(
+            lambda: ok(
+                "KPI regression analysis completed.",
+                data=ctx.device_farm.analyze_kpi_regression(kpi_report_id=kpi_report_id),
+            )
+        )
+
+    @mcp.tool()
+    def create_recipe_feedback(
+        recipe_id: str,
+        kpi_report_id: str,
+        analysis: dict[str, Any] | None = None,
+        author: str = "device-farm",
+    ) -> dict[str, Any]:
+        """Create structured recipe feedback from KPI regression analysis."""
+        return call(
+            lambda: ok(
+                "Recipe feedback created.",
+                data=ctx.device_farm.create_recipe_feedback(
+                    recipe_id=recipe_id,
+                    kpi_report_id=kpi_report_id,
+                    analysis=analysis,
+                    author=author,
+                ),
+            )
+        )
+
+    @mcp.tool()
+    def create_recipe_revision_from_feedback(
+        recipe_id: str,
+        feedback_id: str | None = None,
+        kpi_report_id: str | None = None,
+        strategy: str = "auto",
+        notes: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a new recipe revision from KPI feedback."""
+        return call(
+            lambda: ok(
+                "Recipe revision created.",
+                data=ctx.intent_planner.create_revision_from_feedback(
+                    recipe_id=recipe_id,
+                    feedback_id=feedback_id,
+                    kpi_report_id=kpi_report_id,
+                    strategy=strategy,
+                    notes=notes,
+                ),
+            )
+        )
 
     @mcp.tool()
     def run_profiler(

@@ -5,67 +5,109 @@
 <h1 align="center">Model Optimization MCP</h1>
 
 <p align="center">
-  <b>A governed GPU lab for Claude Code, Codex, Cursor, and other local coding agents.</b>
+  <b>Hybrid Skill + MCP control plane for model quantization, GPU execution, device-farm KPI validation, and recipe feedback loops.</b>
 </p>
 
 <p align="center">
   <a href="README.zh-CN.md">中文 README</a>
   ·
+  <a href="docs/enterprise-blueprint.md">Enterprise Blueprint</a>
+  ·
   <a href="docs/architecture.md">Architecture</a>
   ·
   <a href="docs/tool-reference.md">Tool Reference</a>
   ·
-  <a href="docs/agent-skill-pack.md">Agent Skill Pack</a>
+  <a href="docs/agent-skill-pack.md">Agent Skills</a>
 </p>
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-12343B">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-FastMCP-F4D35E">
-  <img alt="License" src="https://img.shields.io/badge/License-MIT-88D498">
-  <img alt="Status" src="https://img.shields.io/badge/Status-Alpha-E1A95F">
+  <img alt="Architecture" src="https://img.shields.io/badge/Architecture-Hybrid%20Skill%20%2B%20MCP-88D498">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-E1A95F">
 </p>
 
-## Why This Exists
+## What This Is
 
-Model onboarding for inference optimization is still too manual: engineers copy models to a GPU box, inspect configs, fight CUDA/runtime drift, run quantization scripts, evaluate accuracy, benchmark serving performance, collect logs, and write reports. It gets worse when many engineers share the same GPU server.
+Model Optimization MCP is a reference implementation of an enterprise model-optimization platform where engineers can talk to local agents such as Claude Code, Codex, or Cursor:
 
-This repository turns that GPU server into a controlled MCP server. Local agents do the planning and explanation; this server handles the safe execution boundary.
+```text
+"Use PTQ to quantize the Qwen3.6 model for Android devices."
+```
+
+The local agent does not need to be your own custom agent. It can use local skills for reasoning-heavy steps and call this MCP server for shared state, resource governance, remote execution, device-farm validation, and auditability.
 
 ```mermaid
 flowchart LR
-    Agent["Local Agent<br/>Claude Code / Codex / Cursor"] --> MCP["Model Optimization MCP"]
-    MCP --> Policy["Auth / Policy / Quota"]
-    MCP --> Resource["GPU Lease Manager"]
-    MCP --> Workspace["Workspace Manager"]
-    MCP --> Jobs["Async Job Runner"]
-    Jobs --> GPU["GPU Server / Cluster"]
-    Jobs --> Tools["AWQ / GPTQ / vLLM / TensorRT-LLM / Eval"]
-    Jobs --> Artifacts["Artifact Registry + Reports"]
+    Engineer["Engineer"] --> Agent["Local Agent<br/>Claude Code / Codex / Cursor"]
+    Agent --> Skills["Local Skills<br/>intake · recipe · analysis · reporting"]
+    Agent --> MCP["Model Optimization MCP<br/>control plane"]
+    MCP --> GPU["GPU Compute Pools<br/>many GPU servers"]
+    MCP --> Farm["Device Farm<br/>phones / SoCs / platforms"]
+    MCP --> Registry["Artifacts · Recipes · KPI Reports · Lineage"]
+    Farm --> Feedback["KPI Regression Feedback"]
+    Feedback --> MCP
 ```
 
-## What It Covers
+## Why Hybrid Skill + MCP
 
-- GPU resource governance: snapshots, leases, queue state, TTL renewal, release, usage summaries, orphan scans, managed service ports.
-- Workspace governance: isolated project workspaces, safe file reads/writes, model/dataset staging, checksums, disk quotas, cleanup.
-- Runtime governance: approved runtime environments and whitelisted task templates instead of arbitrary shell.
-- Model onboarding: guided runs with next-action hints for agents that are not custom-built by your team.
-- Quantization workflows: recipe recommendation, AWQ/GPTQ/INT8/FP8-style recipe metadata, quantization job submission.
-- Evaluation and benchmark: baseline eval, quantized eval, latency/throughput benchmark, temporary inference services, comparison, profiling, compile/export hooks.
-- Artifact lineage: every candidate records model, recipe, job, run, runtime, and result metadata.
-- GitHub-ready developer experience: bilingual docs, CI, Dockerfile, examples, skill prompt, security model, and tests.
+Not every step should be an MCP tool.
 
-## Current Runtime Mode
+Local skills are better for:
 
-The project ships with a **simulation runner** by default. That is intentional:
+- turning vague human requests into structured requirements,
+- asking necessary clarification questions,
+- drafting and explaining recipes,
+- reasoning about failures and bad cases,
+- writing final human-facing summaries.
 
-- You can clone it and run tests without a GPU.
-- Agent workflows, resource leases, job states, logs, metrics, artifacts, and reports all work locally.
-- Production teams can replace the runner adapters with Docker, Slurm, Kubernetes, Ray, or internal execution backends.
+MCP tools are better for:
+
+- shared server-side state,
+- GPU resource leases and queueing,
+- multi-node compute-pool scheduling,
+- artifact and recipe lineage,
+- device-farm test submission,
+- KPI reports and feedback loops,
+- auditable approvals and promotions.
+
+This repo models that split explicitly. A workflow step can be executed by `local_skill`, `mcp_tool`, `human_approval`, `hybrid`, or `external_system`.
+
+## End-to-End Loop
+
+```mermaid
+flowchart TB
+    A["Short request"] --> B["Intent intake skill"]
+    B --> C["Clarification questions"]
+    C --> D["Draft quantization recipe"]
+    D --> E["Validate and approve recipe"]
+    E --> F["Select GPU compute pool"]
+    F --> G["Run PTQ candidates"]
+    G --> H["Server eval + benchmark"]
+    H --> I["Package for device farm"]
+    I --> J["Run phone KPI matrix"]
+    J --> K{"KPI passed?"}
+    K -->|Yes| L["Report and promote artifact"]
+    K -->|No| M["Analyze regression"]
+    M --> N["Create recipe feedback"]
+    N --> D
+```
+
+## Capabilities
+
+- Requirement intake: convert vague requests into structured sessions and necessary questions.
+- Recipe lifecycle: draft, validate, approve, revise, and list auditable quantization recipes.
+- Hybrid planning: generate workflow plans where each step maps to a local skill, MCP tool, approval, or external system.
+- Control plane: manage compute pools, GPU worker nodes, heartbeat, capacity snapshots, pool selection, and execution plans.
+- Compute execution: resource snapshots, GPU leases, async jobs, workspaces, quantization, eval, benchmark, profiling, compile/export.
+- Device farm: register/list devices, generate device matrices, submit mobile KPI tests, generate reports.
+- Feedback loop: analyze failed KPI reports, create recipe feedback, and synthesize revised recipes.
+- GitHub-ready docs: bilingual README, architecture docs, security docs, deployment docs, CI, Docker, and skill packs.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-org/model-optimization-mcp.git
+git clone https://github.com/Masterzhuior/model-optimization-mcp.git
 cd model-optimization-mcp
 python -m venv .venv
 . .venv/bin/activate  # Windows: .venv\Scripts\activate
@@ -73,96 +115,111 @@ pip install -e ".[dev]"
 model-optimization-mcp doctor
 ```
 
-Run as a local stdio MCP server:
+Run as stdio MCP:
 
 ```bash
 model-optimization-mcp stdio
 ```
 
-Run as a Streamable HTTP MCP server:
+Run as Streamable HTTP MCP:
 
 ```bash
 MOMCP_HOME=/srv/model-optimization-mcp \
 model-optimization-mcp http --host 0.0.0.0 --port 8000
 ```
 
-## Minimal Agent Flow
-
-An external local agent should follow this pattern:
+## A Realistic Agent Flow
 
 ```text
-1. health_check
-2. start_model_onboarding
-3. run_onboarding_stage(run_id, "inspect_model")
-4. estimate_resource_need
-5. request_resource_lease
-6. run_onboarding_stage(..., lease_id=...)
-7. get_job_status / get_job_logs
-8. get_next_recommended_action
-9. generate_onboarding_report
+1. list_agent_skills
+2. start_quantization_intake
+3. answer_intake_questions
+4. synthesize_quantization_recipe
+5. validate_quantization_recipe
+6. generate_hybrid_workflow_plan
+7. approve_quantization_recipe
+8. select_compute_pool
+9. create_execution_plan_from_recipe
+10. request_resource_lease
+11. run_quantization / run_quantized_eval / run_benchmark
+12. create_device_test_matrix
+13. submit_device_farm_test
+14. generate_kpi_report
+15. analyze_kpi_regression
+16. create_recipe_feedback
+17. create_recipe_revision_from_feedback
 ```
 
-The key rule: **GPU stages require a server-issued `lease_id`**. Agents do not choose GPUs by parsing `nvidia-smi`; the server does.
+The key rule: local skills can reason and write, but server-side MCP owns shared truth, resource admission, remote execution, and lineage.
 
-## Example Tool Call
+## Example: From One Sentence to Recipe
 
 ```json
 {
-  "tool": "start_model_onboarding",
+  "tool": "start_quantization_intake",
   "arguments": {
-    "project_id": "team-a",
+    "project_id": "team-mobile",
     "user_id": "alice",
-    "model_uri": "s3://models/qwen2.5-7b-instruct",
-    "target_hardware": "H100",
-    "optimization_goal": {
-      "quantization": ["int4", "int8"],
-      "max_accuracy_drop": 0.01,
-      "min_speedup": 2.0
-    },
-    "eval_dataset_id": "eval-internal-chat-v2"
+    "utterance": "用 PTQ 量化 Qwen3.6 模型，目标是安卓手机端侧"
   }
 }
 ```
 
-The server returns a `run_id`, `workspace_id`, and a `next_action` that local agents can follow even if they are not specialized model-optimization agents.
+The server returns missing required questions such as model URI, calibration dataset, eval dataset, device matrix, and KPI thresholds. After answers are provided, it can synthesize a recipe with:
+
+- model source,
+- PTQ method candidates,
+- calibration strategy,
+- evaluation criteria,
+- compute-pool selector,
+- device-farm matrix,
+- KPI acceptance gates,
+- fallback and rollback plan.
 
 ## Repository Map
 
 ```text
 src/model_optimization_mcp/
-  server.py                 FastMCP tools, resources, prompts
-  app.py                    service wiring
-  config.py                 environment settings
-  store.py                  JSON metadata store
+  server.py                  FastMCP tools, resources, prompts
+  app.py                     service wiring
+  store.py                   JSON metadata store for local/demo mode
   services/
-    resource_manager.py     GPU leases, queue, usage, snapshots
-    workspace_manager.py    safe workspaces and staging
-    job_manager.py          async job runner and task templates
-    onboarding.py           guided model onboarding workflow
-    artifacts.py            artifact registry and reports
-    catalog.py              default envs, recipes, datasets, templates
+    intent_planner.py        intake, questions, recipe synthesis, recipe revisions
+    skill_orchestrator.py    hybrid skill/MCP workflow plans
+    control_plane.py         compute pools, GPU nodes, capacity, execution plans
+    device_farm.py           device matrix, KPI runs, regression feedback
+    resource_manager.py      leases, queue, GPU snapshots, usage
+    workspace_manager.py     safe project workspaces and staging
+    job_manager.py           async job runner and simulated task templates
+    onboarding.py            legacy guided onboarding helper
+    artifacts.py             artifact registry and reports
 docs/
+  enterprise-blueprint.md
   architecture.md
   tool-reference.md
-  deployment.md
-  security.md
   agent-skill-pack.md
-skills/model-onboarding/SKILL.md
-examples/
+skills/
+  model-onboarding/
+  intent-intake/
+  recipe-authoring/
+  device-farm-evaluation/
+  kpi-regression-analysis/
 ```
 
-## Production Adapter Roadmap
+## Current Runtime Mode
 
-- Replace the simulation runner with Docker, Slurm, Kubernetes, or Ray.
-- Add SSO/OIDC/mTLS at the gateway layer.
-- Move JSON state to Postgres and job events to Redis or Kafka.
-- Integrate artifact storage with S3, MinIO, Ceph, MLflow, or an internal model registry.
-- Register real quantization templates for AWQ, GPTQ, SmoothQuant, FP8, TensorRT-LLM, vLLM, and internal compilers.
-- Add policy hooks for regulated datasets, model export controls, and production promotion approvals.
+The repository ships with a simulation runner so it can be tested without H100s or a real device farm. Production teams should replace adapters with Docker, Slurm, Kubernetes, Ray, internal GPU schedulers, and real device-farm APIs while preserving the same MCP contracts.
+
+## Verification
+
+```bash
+py -3.12 -m pytest
+py -3.12 -m ruff check .
+python -m unittest discover -s tests
+model-optimization-mcp doctor
+```
 
 ## References
-
-This project uses the official MCP Python SDK / FastMCP patterns for tools, resources, prompts, and Streamable HTTP transport:
 
 - [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk)
 - [MCP Python SDK server docs](https://modelcontextprotocol.github.io/python-sdk/server/)
@@ -170,3 +227,4 @@ This project uses the official MCP Python SDK / FastMCP patterns for tools, reso
 ## License
 
 MIT. See [LICENSE](LICENSE).
+

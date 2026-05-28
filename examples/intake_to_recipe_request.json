@@ -1,0 +1,20 @@
+{
+  "project_id": "team-mobile",
+  "user_id": "alice",
+  "utterance": "用 PTQ 量化 Qwen3.6 模型，目标是安卓手机端侧",
+  "answers": {
+    "model_uri": "s3://models/qwen3.6",
+    "calibration_dataset_id": "calib-general-v1",
+    "eval_dataset_id": "eval-internal-chat-v2",
+    "deployment_target": "mobile-android",
+    "device_matrix": ["snapdragon-8gen3", "dimensity-9300"],
+    "acceptance": {
+      "max_accuracy_drop": 0.01,
+      "min_speedup": 1.5,
+      "primary_latency_ms": 32,
+      "max_memory_mb": 1400,
+      "thermal_limit_c": 43
+    }
+  }
+}
+

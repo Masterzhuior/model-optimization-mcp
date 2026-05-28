@@ -5,67 +5,108 @@
 <h1 align="center">Model Optimization MCP</h1>
 
 <p align="center">
-  <b>给 Claude Code、Codex、Cursor 等本地 Agent 使用的企业级 GPU 推理优化操作网关。</b>
+  <b>面向模型量化、GPU 执行、Device Farm KPI 验证和 Recipe 回流的 Hybrid Skill + MCP 控制面。</b>
 </p>
 
 <p align="center">
   <a href="README.md">English README</a>
   ·
+  <a href="docs/enterprise-blueprint.md">企业蓝图</a>
+  ·
   <a href="docs/architecture.md">架构</a>
   ·
   <a href="docs/tool-reference.md">工具清单</a>
   ·
-  <a href="docs/agent-skill-pack.md">Agent Skill</a>
+  <a href="docs/agent-skill-pack.md">Agent Skills</a>
 </p>
 
 <p align="center">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.10%2B-12343B">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-FastMCP-F4D35E">
-  <img alt="License" src="https://img.shields.io/badge/License-MIT-88D498">
-  <img alt="Status" src="https://img.shields.io/badge/Status-Alpha-E1A95F">
+  <img alt="Architecture" src="https://img.shields.io/badge/Architecture-Hybrid%20Skill%20%2B%20MCP-88D498">
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-E1A95F">
 </p>
 
 ## 项目定位
 
-很多企业里的模型推理优化流程仍然高度依赖工程师经验：拷模型、检查 tokenizer/config、切 CUDA 环境、跑量化脚本、做精度评估、跑 benchmark、看日志、整理报告。多人共用同一台 GPU server 时，还会出现抢卡、抢端口、磁盘爆掉、任务归属不清等问题。
+这个项目不是简单的“GPU server MCP 工具集合”，而是一个更接近真实企业形态的参考实现：工程师可以对 Claude Code、Codex、Cursor 这类本地 Agent 说：
 
-这个项目把 GPU server 包装成一个 **受控 MCP Server**。本地 Agent 负责理解需求、规划流程、解释结果；MCP Server 负责安全执行、资源治理、任务审计和产物沉淀。
+```text
+“用 PTQ 量化 Qwen3.6 模型，目标是安卓手机端侧。”
+```
+
+本地 Agent 不需要是你们自研的专用 Agent。它可以通过本地 skill 完成需求理解、问题追问、recipe 草拟、失败分析和报告表达；同时调用 MCP Server 完成共享状态、资源治理、远端执行、device farm 测试、KPI 报告、审计和闭环回流。
 
 ```mermaid
 flowchart LR
-    Agent["本地 Agent<br/>Claude Code / Codex / Cursor"] --> MCP["Model Optimization MCP"]
-    MCP --> Policy["权限 / 策略 / 配额"]
-    MCP --> Resource["GPU 租约管理"]
-    MCP --> Workspace["隔离工作区"]
-    MCP --> Jobs["异步任务系统"]
-    Jobs --> GPU["GPU Server / 集群"]
-    Jobs --> Tools["AWQ / GPTQ / vLLM / TensorRT-LLM / Eval"]
-    Jobs --> Artifacts["Artifact Registry + 报告"]
+    Engineer["工程师"] --> Agent["本地 Agent<br/>Claude Code / Codex / Cursor"]
+    Agent --> Skills["本地 Skills<br/>需求澄清 · Recipe · 分析 · 报告"]
+    Agent --> MCP["Model Optimization MCP<br/>控制面"]
+    MCP --> GPU["GPU Compute Pools<br/>多台 GPU Server"]
+    MCP --> Farm["Device Farm<br/>手机 / SoC / 平台"]
+    MCP --> Registry["Artifacts · Recipes · KPI Reports · Lineage"]
+    Farm --> Feedback["KPI Regression Feedback"]
+    Feedback --> MCP
+```
+
+## 为什么是 Hybrid Skill + MCP
+
+不是所有步骤都应该做成 MCP tool。
+
+适合本地 skill 的事情：
+
+- 把模糊的人类需求转成结构化需求；
+- 形成必要追问；
+- 草拟和解释 recipe；
+- 分析 badcase、日志和 KPI 失败；
+- 生成面向工程师/评审的说明。
+
+适合 MCP 的事情：
+
+- 维护共享状态；
+- GPU 资源租约、排队和配额；
+- 多台 GPU server 的 compute pool 调度；
+- artifact、recipe、job、KPI 的 lineage；
+- device farm 测试提交；
+- KPI 报告、反馈回流和审批审计。
+
+所以这个仓库显式支持 `local_skill`、`mcp_tool`、`human_approval`、`hybrid`、`external_system` 多种执行类型。
+
+## 端到端闭环
+
+```mermaid
+flowchart TB
+    A["一句话需求"] --> B["Intent Intake Skill"]
+    B --> C["必要问题追问"]
+    C --> D["Draft Recipe"]
+    D --> E["Validate + Approve"]
+    E --> F["选择 GPU Compute Pool"]
+    F --> G["运行 PTQ Candidates"]
+    G --> H["Server Eval + Benchmark"]
+    H --> I["打包到 Device Farm"]
+    I --> J["手机 KPI Matrix"]
+    J --> K{"KPI 通过？"}
+    K -->|通过| L["报告 + 推进 Artifact"]
+    K -->|失败| M["Regression Analysis"]
+    M --> N["Recipe Feedback"]
+    N --> D
 ```
 
 ## 覆盖能力
 
-- GPU 资源治理：资源快照、租约申请、排队、TTL 续租、释放、用户/项目用量、孤儿任务扫描、服务端口管理。
-- 工作区治理：项目隔离目录、安全文件读写、模型/数据 staging、checksum、磁盘配额、清理。
-- 环境治理：白名单 runtime env、白名单 task template，不开放任意 shell。
-- 模型 onboarding：面向普通本地 Agent 的 guided run 和 next-action 提示。
-- 量化流程：recipe 推荐、AWQ/GPTQ/INT8/FP8 风格 recipe、量化任务提交。
-- 评估与性能：baseline eval、量化后 eval、吞吐/延迟 benchmark、临时推理服务、结果对比、profiling、compile/export hook。
-- 产物 lineage：每个 candidate 记录 model、recipe、job、run、runtime 和指标。
-- GitHub 展示：中英文 README、架构文档、工具清单、Skill 示例、CI、Docker、Issue/PR 模板。
-
-## 当前运行模式
-
-仓库默认使用 **simulation runner**。这是刻意设计的：
-
-- 没有 GPU 的开发机也可以跑通测试和 demo。
-- resource lease、job 状态机、logs、metrics、artifacts、report 都能本地验证。
-- 生产环境可以把 runner 替换成 Docker、Slurm、Kubernetes、Ray 或企业内部执行系统。
+- 需求 intake：把简短需求转成结构化 session 和必要问题。
+- Recipe 生命周期：draft、validate、approve、revise、list。
+- Hybrid workflow：每一步标明由本地 skill、MCP tool、人工审批还是外部系统执行。
+- 控制面：compute pool、GPU worker node、heartbeat、capacity snapshot、pool selection、execution plan。
+- 计算执行：资源快照、GPU lease、异步 job、workspace、量化、eval、benchmark、profiling、compile/export。
+- Device farm：设备池、设备矩阵、端侧 KPI 测试、KPI 报告。
+- 反馈闭环：分析失败 KPI，生成 recipe feedback，并创建新 recipe revision。
+- GitHub 展示：中英文 README、企业蓝图、架构、安全、部署、工具文档、CI、Docker、skill pack。
 
 ## 快速开始
 
 ```bash
-git clone https://github.com/your-org/model-optimization-mcp.git
+git clone https://github.com/Masterzhuior/model-optimization-mcp.git
 cd model-optimization-mcp
 python -m venv .venv
 . .venv/bin/activate  # Windows: .venv\Scripts\activate
@@ -73,96 +114,111 @@ pip install -e ".[dev]"
 model-optimization-mcp doctor
 ```
 
-以本地 stdio MCP server 运行：
+以 stdio MCP 运行：
 
 ```bash
 model-optimization-mcp stdio
 ```
 
-以 Streamable HTTP MCP server 运行：
+以 Streamable HTTP MCP 运行：
 
 ```bash
 MOMCP_HOME=/srv/model-optimization-mcp \
 model-optimization-mcp http --host 0.0.0.0 --port 8000
 ```
 
-## Agent 标准调用流程
-
-外部本地 Agent 建议按这个流程走：
+## 更真实的 Agent 调用链
 
 ```text
-1. health_check
-2. start_model_onboarding
-3. run_onboarding_stage(run_id, "inspect_model")
-4. estimate_resource_need
-5. request_resource_lease
-6. run_onboarding_stage(..., lease_id=...)
-7. get_job_status / get_job_logs
-8. get_next_recommended_action
-9. generate_onboarding_report
+1. list_agent_skills
+2. start_quantization_intake
+3. answer_intake_questions
+4. synthesize_quantization_recipe
+5. validate_quantization_recipe
+6. generate_hybrid_workflow_plan
+7. approve_quantization_recipe
+8. select_compute_pool
+9. create_execution_plan_from_recipe
+10. request_resource_lease
+11. run_quantization / run_quantized_eval / run_benchmark
+12. create_device_test_matrix
+13. submit_device_farm_test
+14. generate_kpi_report
+15. analyze_kpi_regression
+16. create_recipe_feedback
+17. create_recipe_revision_from_feedback
 ```
 
-核心规则：**所有 GPU 阶段都必须先拿到服务端签发的 `lease_id`**。Agent 不应该自己解析 `nvidia-smi` 然后决定用哪张卡，这个裁决应该由 server 完成。
+核心原则：本地 skill 负责智能分析和表达，MCP 负责共享事实、资源准入、远端执行和可审计 lineage。
 
-## 示例 Tool Call
+## 示例：一句话需求到 Recipe
 
 ```json
 {
-  "tool": "start_model_onboarding",
+  "tool": "start_quantization_intake",
   "arguments": {
-    "project_id": "team-a",
+    "project_id": "team-mobile",
     "user_id": "alice",
-    "model_uri": "s3://models/qwen2.5-7b-instruct",
-    "target_hardware": "H100",
-    "optimization_goal": {
-      "quantization": ["int4", "int8"],
-      "max_accuracy_drop": 0.01,
-      "min_speedup": 2.0
-    },
-    "eval_dataset_id": "eval-internal-chat-v2"
+    "utterance": "用 PTQ 量化 Qwen3.6 模型，目标是安卓手机端侧"
   }
 }
 ```
 
-返回结果会包含 `run_id`、`workspace_id` 和 `next_action`。即使本地 Agent 不是你们自研的专用 Agent，也能根据服务端提示继续执行。
+服务端会返回必要问题，例如模型 URI、校准集、评估集、device matrix、KPI 阈值。回答后可以生成 recipe，其中包括：
+
+- 模型来源；
+- PTQ 候选方法；
+- 校准策略；
+- 评估标准；
+- compute pool selector；
+- device farm matrix；
+- KPI acceptance gates；
+- fallback 和 rollback 计划。
 
 ## 目录结构
 
 ```text
 src/model_optimization_mcp/
-  server.py                 FastMCP tools/resources/prompts
-  app.py                    服务装配
-  config.py                 环境配置
-  store.py                  JSON metadata store
+  server.py                  FastMCP tools/resources/prompts
+  app.py                     服务装配
+  store.py                   本地/demo JSON metadata store
   services/
-    resource_manager.py     GPU lease、queue、usage、snapshot
-    workspace_manager.py    安全 workspace 和 staging
-    job_manager.py          异步 job runner 和 task template
-    onboarding.py           guided model onboarding workflow
-    artifacts.py            artifact registry 和 report
-    catalog.py              默认 env、recipe、dataset、template
+    intent_planner.py        intake、问题追问、recipe 合成和 revision
+    skill_orchestrator.py    Hybrid Skill/MCP workflow plan
+    control_plane.py         compute pool、GPU node、capacity、execution plan
+    device_farm.py           device matrix、KPI run、regression feedback
+    resource_manager.py      lease、queue、GPU snapshot、usage
+    workspace_manager.py     安全 workspace 和 staging
+    job_manager.py           异步 job runner 和模拟 task template
+    onboarding.py            兼容早期 guided onboarding helper
+    artifacts.py             artifact registry 和 report
 docs/
+  enterprise-blueprint.md
   architecture.md
   tool-reference.md
-  deployment.md
-  security.md
   agent-skill-pack.md
-skills/model-onboarding/SKILL.md
-examples/
+skills/
+  model-onboarding/
+  intent-intake/
+  recipe-authoring/
+  device-farm-evaluation/
+  kpi-regression-analysis/
 ```
 
-## 生产化路线
+## 当前运行模式
 
-- 把 simulation runner 替换成 Docker、Slurm、Kubernetes 或 Ray。
-- 在 MCP Gateway 层接入 SSO/OIDC/mTLS。
-- 把 JSON state 换成 Postgres，把 job event 接到 Redis/Kafka。
-- 把 artifact 接到 S3、MinIO、Ceph、MLflow 或内部模型仓库。
-- 注册真实 AWQ、GPTQ、SmoothQuant、FP8、TensorRT-LLM、vLLM、自研编译器任务模板。
-- 增加数据权限、模型导出控制、生产发布审批等 policy hook。
+仓库默认使用 simulation runner，因此没有 H100 或真实 device farm 也能跑测试。生产落地时，应把 adapter 替换成 Docker、Slurm、Kubernetes、Ray、内部 GPU 调度平台和真实设备农场 API，同时保持 MCP 契约稳定。
+
+## 验证
+
+```bash
+py -3.12 -m pytest
+py -3.12 -m ruff check .
+python -m unittest discover -s tests
+model-optimization-mcp doctor
+```
 
 ## 参考
-
-本项目基于官方 MCP Python SDK / FastMCP 的 tools、resources、prompts 和 Streamable HTTP 设计：
 
 - [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk)
 - [MCP Python SDK server docs](https://modelcontextprotocol.github.io/python-sdk/server/)
@@ -170,3 +226,4 @@ examples/
 ## License
 
 MIT. See [LICENSE](LICENSE).
+

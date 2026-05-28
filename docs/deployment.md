@@ -64,9 +64,11 @@ model-optimization-mcp stdio
 - Store metadata in Postgres.
 - Store artifacts in S3/MinIO/Ceph or an internal model registry.
 - Replace simulation runner with Docker/Slurm/K8s/Ray.
+- Deploy GPU workers as a compute plane registered with `compute_nodes`.
+- Put the MCP server behind a gateway when multiple engineer laptops connect.
+- Connect `DeviceFarm` to a real phone farm API for mobile KPI validation.
 - Add per-tool policy checks.
 - Add approval workflow integration.
 - Add metrics export to Prometheus.
 - Add log shipping to your central logging system.
 - Pin runtime images and quantization tool versions.
-

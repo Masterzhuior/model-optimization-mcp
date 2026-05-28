@@ -10,6 +10,33 @@ This reference groups the MCP tools by operational area. Tools return JSON-nativ
 | `list_runtime_envs` | List approved Docker/conda/runtime environments. |
 | `list_toolchains` | List registered task templates. |
 | `validate_runtime_env` | Validate an approved runtime environment. |
+| `list_agent_skills` | List local/hybrid skills available to the agent. |
+| `get_agent_skill` | Read one skill contract. |
+| `generate_hybrid_workflow_plan` | Generate a plan whose steps can be skills, tools, approvals, or external systems. |
+
+## Intake and Recipe Lifecycle
+
+| Tool | Purpose |
+| --- | --- |
+| `start_quantization_intake` | Start from a short natural-language request and return missing questions. |
+| `answer_intake_questions` | Record clarification answers. |
+| `synthesize_quantization_recipe` | Create an auditable recipe spec from intake. |
+| `validate_quantization_recipe` | Validate recipe blockers and warnings. |
+| `approve_quantization_recipe` | Approve a validated recipe for execution. |
+| `list_quantization_recipes` | List recipe specs by project or status. |
+| `create_recipe_revision_from_feedback` | Create a new recipe revision after KPI failures. |
+
+## Compute Control Plane
+
+| Tool | Purpose |
+| --- | --- |
+| `list_compute_pools` | List GPU compute pools. |
+| `list_compute_nodes` | List GPU worker nodes. |
+| `register_compute_node` | Register a worker node under a pool. |
+| `heartbeat_compute_node` | Update worker heartbeat and metrics. |
+| `get_compute_capacity` | Summarize pool/node capacity. |
+| `select_compute_pool` | Select a compute pool for a recipe or requirement. |
+| `create_execution_plan_from_recipe` | Create a control-plane execution plan from a recipe. |
 
 ## Resource Governance
 
@@ -86,6 +113,19 @@ This reference groups the MCP tools by operational area. Tools return JSON-nativ
 | `get_service_health` | Check managed inference service readiness. |
 | `stop_inference_service` | Stop a managed inference service and release its port. |
 
+## Device Farm and KPI Feedback
+
+| Tool | Purpose |
+| --- | --- |
+| `list_device_pools` | List device-farm pools. |
+| `list_devices` | List devices by pool, platform, SoC, or status. |
+| `create_device_test_matrix` | Build a test matrix from device filters. |
+| `submit_device_farm_test` | Submit an artifact to device-farm KPI testing. |
+| `get_device_test_status` | Read device test status and raw KPI results. |
+| `generate_kpi_report` | Convert raw device results into pass/fail KPI report. |
+| `analyze_kpi_regression` | Analyze failed KPIs and propose recipe feedback strategy. |
+| `create_recipe_feedback` | Persist structured feedback for recipe revision. |
+
 ## Jobs and Guided Runs
 
 | Tool | Purpose |
@@ -110,11 +150,19 @@ This reference groups the MCP tools by operational area. Tools return JSON-nativ
 Agents should prefer the guided workflow:
 
 ```text
-start_model_onboarding
-run_onboarding_stage
-get_job_status
-get_next_recommended_action
-generate_onboarding_report
+start_quantization_intake
+answer_intake_questions
+synthesize_quantization_recipe
+validate_quantization_recipe
+generate_hybrid_workflow_plan
+approve_quantization_recipe
+select_compute_pool
+create_execution_plan_from_recipe
+request_resource_lease
+run_quantization
+submit_device_farm_test
+generate_kpi_report
+analyze_kpi_regression
 ```
 
-Agents should use direct low-level tools only when the engineer asks for a specific operation or when a workflow stage returns a clear `next_action`.
+Agents should use local skills for reasoning-heavy steps and MCP tools for shared state, remote execution, and auditability.

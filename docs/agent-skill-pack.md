@@ -1,58 +1,75 @@
 # Agent Skill Pack
 
-This repository includes a portable skill prompt in `skills/model-onboarding/SKILL.md`. The goal is to teach generic local agents how to operate the MCP server safely.
+This repository treats skills as first-class workflow executors. MCP is not expected to do every step.
 
-## Principle
+## Execution Types
 
-The skill is guidance, not security. The MCP server must enforce safety even if an agent ignores the skill.
+| Executor | Use it for |
+| --- | --- |
+| `local_skill` | Reasoning, clarification, explanation, local config/package generation. |
+| `mcp_tool` | Shared state, policy, remote execution, artifact lineage, KPI reports. |
+| `human_approval` | GPU budget, data access, production promotion, risky tradeoffs. |
+| `hybrid` | Skill reasons while MCP records state or executes a controlled action. |
+| `external_system` | Ticketing, model registry, approval, or device farm outside MCP. |
 
-## Recommended Skill Behavior
+## Skill Set
 
-Agents should:
+| Skill | Role |
+| --- | --- |
+| `intent-intake` | Convert vague requests into structured requirements and questions. |
+| `recipe-authoring` | Draft, validate, explain, and revise recipes. |
+| `gpu-capacity-planning` | Use MCP capacity and pool-selection tools. |
+| `ptq-execution` | Run approved PTQ candidates through MCP. |
+| `device-farm-evaluation` | Package and submit artifacts to device-farm testing. |
+| `kpi-regression-analysis` | Analyze KPI failures and create recipe feedback. |
+| `release-reporting` | Generate final report and promotion recommendation. |
 
-- Prefer guided tools such as `start_model_onboarding`, `run_onboarding_stage`, and `get_next_recommended_action`.
-- Never run arbitrary SSH or shell commands on the GPU server.
-- Always request a GPU lease before GPU work.
-- Poll job status instead of blocking indefinitely.
-- Read job logs only when a job is running long or failed.
-- Stop when the server returns `waiting_for_approval`.
-- Summarize artifact IDs, metrics, and risks at the end.
+## Recommended Agent Behavior
 
-## Human Intervention Points
-
-Agents should stop and ask the engineer when:
-
-- data permission is missing,
-- production promotion requires approval,
-- accuracy drop exceeds target,
-- benchmark result misses the SLO,
-- quota is exhausted,
-- the server reports ambiguous failure diagnosis,
-- a destructive cleanup is requested with `dry_run=false`.
-
-## Example Engineer Prompt
+When the engineer says something like:
 
 ```text
-Use the Model Optimization MCP server to onboard s3://models/qwen2.5-7b-instruct
-for H100 serving. Try INT4 first, accept at most 1% accuracy drop, and generate
-a final report with artifact lineage.
+用 PTQ 量化 Qwen3.6 模型
 ```
 
-## Example Agent Plan
+The agent should not immediately run quantization. It should:
 
-```text
-1. health_check
-2. start_model_onboarding
-3. run_onboarding_stage inspect_model
-4. request_resource_lease for baseline
-5. run_onboarding_stage baseline_eval
-6. run_onboarding_stage baseline_benchmark
-7. run_onboarding_stage recommend_recipes
-8. request_resource_lease for quantization
-9. run_onboarding_stage quantize_candidates
-10. run_onboarding_stage quantized_eval
-11. run_onboarding_stage benchmark_candidates
-12. run_onboarding_stage compare
-13. generate_onboarding_report
-```
+1. Use the intake skill to identify missing information.
+2. Call `start_quantization_intake`.
+3. Ask only the necessary questions returned by MCP.
+4. Call `answer_intake_questions`.
+5. Use the recipe-authoring skill to explain tradeoffs.
+6. Call `synthesize_quantization_recipe`.
+7. Call `validate_quantization_recipe`.
+8. Generate a hybrid plan with `generate_hybrid_workflow_plan`.
+9. Ask for approval if required.
+10. Use MCP to select compute pool and run remote jobs.
+11. Use device-farm tools when the target is mobile or edge.
+12. Use KPI regression skill if results fail.
+13. Create recipe feedback and a revised recipe when needed.
+
+## What Skills Should Not Do
+
+Skills should not:
+
+- SSH into GPU servers,
+- pick GPU IDs manually,
+- bypass leases,
+- mutate artifacts outside MCP,
+- promote production artifacts without approval,
+- delete shared workspaces or caches directly.
+
+## Final Response Contract
+
+At the end, the agent should report:
+
+- recipe ID and version,
+- artifact ID and stage,
+- compute pool used,
+- quantization method and fallback candidates,
+- server eval and benchmark result,
+- device-farm KPI report,
+- failures and root-cause hypotheses,
+- recipe feedback or revision ID,
+- approval or promotion status.
 

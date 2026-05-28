@@ -1,6 +1,6 @@
 # Extending Runners
 
-The default job runner is a simulation runner. Replace it with production adapters by keeping the same job lifecycle and result contracts.
+The default job runner is a simulation runner. Replace it with production adapters by keeping the same job lifecycle and result contracts. In the enterprise architecture, this runner sits behind the control plane and executes work on registered `compute_nodes`.
 
 ## Task Template Shape
 
@@ -45,6 +45,7 @@ A runner adapter should:
 - Kubernetes: Jobs with GPU resource requests and node selectors.
 - Ray: distributed model evaluation and benchmark.
 - Internal platform: wrap existing training/inference job APIs.
+- Device farm: wrap Android/iOS phone-lab APIs and report KPI matrices back through `DeviceFarm`.
 
 ## Migration Path
 
@@ -53,4 +54,3 @@ A runner adapter should:
 3. Add an environment variable such as `MOMCP_RUNNER_BACKEND=docker`.
 4. Move template execution from `JobManager._complete_result` to adapter-specific handlers.
 5. Keep artifact and status schemas stable so agents do not need to change.
-
