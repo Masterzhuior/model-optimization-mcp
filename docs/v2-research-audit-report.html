@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Optimization MCP - 深度研究报告与架构审计</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --orange: #d29922;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  
+  h1 { font-size: 28px; margin-bottom: 8px; }
+  h2 { font-size: 22px; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 18px; margin: 20px 0 12px; color: var(--accent); }
+  .subtitle { color: var(--text-dim); font-size: 14px; margin-bottom: 32px; }
+
+  /* Stats Bar */
+  .stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 24px 0; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; flex: 1; min-width: 150px; }
+  .stat .num { font-size: 28px; font-weight: 700; }
+  .stat .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat.green .num { color: var(--green); }
+  .stat.red .num { color: var(--red); }
+  .stat.orange .num { color: var(--orange); }
+  .stat.blue .num { color: var(--accent); }
+
+  /* Comparison Table */
+  .comparison { width: 100%; border-collapse: collapse; margin: 16px 0; background: var(--card); border-radius: 8px; overflow: hidden; }
+  .comparison th { background: #1c2128; padding: 12px 16px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); border-bottom: 2px solid var(--border); }
+  .comparison td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px; vertical-align: top; }
+  .comparison tr:last-child td { border-bottom: none; }
+  .comparison tr:hover td { background: #1c2128; }
+  
+  .old { color: var(--red); text-decoration: line-through; opacity: 0.7; }
+  .new { color: var(--green); font-weight: 600; }
+  .info { color: var(--accent); }
+  
+  /* Tags */
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .tag-red { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+  .tag-green { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
+  .tag-blue { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+  .tag-orange { background: rgba(210,153,34,0.15); color: var(--orange); border: 1px solid rgba(210,153,34,0.3); }
+  .tag-purple { background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid rgba(188,140,255,0.3); }
+
+  /* Architecture Diagram */
+  .arch-diagram { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin: 16px 0; font-family: 'Fira Code', monospace; font-size: 13px; line-height: 1.8; overflow-x: auto; white-space: pre; }
+  
+  /* Flow Steps */
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 16px 0; }
+  .flow-step { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 13px; position: relative; }
+  .flow-step.active { border-color: var(--green); background: rgba(63,185,80,0.08); }
+  .flow-arrow { color: var(--text-dim); padding: 0 4px; font-size: 18px; }
+  .flow-step .tool { font-family: monospace; color: var(--cyan); font-size: 12px; display: block; margin-top: 4px; }
+
+  /* Issue Cards */
+  .issue-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin: 12px 0; }
+  .issue-card.critical { border-left: 3px solid var(--red); }
+  .issue-card.warning { border-left: 3px solid var(--orange); }
+  .issue-card.info { border-left: 3px solid var(--accent); }
+  .issue-card .title { font-weight: 600; margin-bottom: 6px; }
+  .issue-card .detail { color: var(--text-dim); font-size: 13px; }
+  .issue-card code { background: #1c2128; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--cyan); }
+
+  /* File Tree */
+  .file-tree { font-family: monospace; font-size: 13px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 16px 0; }
+  .file-tree .new-file { color: var(--green); }
+  .file-tree .modified { color: var(--orange); }
+  .file-tree .unchanged { color: var(--text-dim); }
+
+  /* Code Blocks */
+  .code-block { background: #1c2128; border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin: 12px 0; font-family: monospace; font-size: 13px; overflow-x: auto; }
+  .code-block .comment { color: var(--text-dim); }
+  .code-block .keyword { color: var(--purple); }
+  .code-block .string { color: var(--green); }
+  .code-block .flag { color: var(--orange); }
+  
+  /* Two Column Layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+  
+  /* Section Box */
+  .section-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin: 16px 0; }
+  .section-box h3 { margin-top: 0; }
+
+  .check { color: var(--green); }
+  .cross { color: var(--red); }
+  .warn { color: var(--orange); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🔍 深度研究报告与架构审计</h1>
+<p class="subtitle">model-optimization-mcp · 基于真实SDK文档的对比分析 · 2026-05-29</p>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat green"><div class="num">4</div><div class="label">平台配置</div></div>
+  <div class="stat blue"><div class="num">3</div><div class="label">厂商适配器</div></div>
+  <div class="stat blue"><div class="num">5</div><div class="label">新增技能</div></div>
+  <div class="stat orange"><div class="num">12</div><div class="label">需修正项</div></div>
+  <div class="stat red"><div class="num">4</div><div class="label">关键错误</div></div>
+</div>
+
+<!-- ============================================================ -->
+<h2>1. MediaTek NeuroPilot SDK 对比</h2>
+
+<h3>1.1 工具链名称与CLI</h3>
+<table class="comparison">
+<tr><th width="30%">项目</th><th width="35%">之前（错误）</th><th width="35%">现在（基于真实文档）</th></tr>
+<tr>
+  <td>转换器名称</td>
+  <td><span class="old">np-converter</span>（泛称）</td>
+  <td><span class="new">NP Converter</span> <span class="tag tag-green">NP8</span> 官方名称；Public版仅NP8可用</td>
+</tr>
+<tr>
+  <td>编译器名称</td>
+  <td><span class="old">ncc-tflite</span>（笼统）</td>
+  <td><span class="new">Neuron Compiler (ncc-tflite)</span> → 生成 <code>.dla</code> 文件<br>是 Neuron SDK 的一部分，位于 SDK bundle 的 SoC 专属目录下</td>
+</tr>
+<tr>
+  <td>运行时</td>
+  <td><span class="old">neuron-runtime</span>（未区分 CLI 和 API）</td>
+  <td><span class="new">neuronrt</span>（CLI工具）+ <span class="new">Neuron Runtime API</span>（C++ API）<br>两个不同组件，用途不同</td>
+</tr>
+<tr>
+  <td>Converter 参数</td>
+  <td><span class="old">未指定具体CLI参数</span></td>
+  <td><span class="new">--tflite_op_export_spec np='sdk_v6'</span> 可生成NP6/NP7兼容模型<br>Genio平台仅支持NP8 Converter</td>
+</tr>
+</table>
+
+<h3>1.2 平台映射关系</h3>
+<table class="comparison">
+<tr><th>平台</th><th>SoC代号</th><th>NP版本</th><th>MDLA版本</th><th>OS支持</th><th>SDK获取方式</th></tr>
+<tr>
+  <td><span class="new">Genio-720</span></td>
+  <td><span class="info">mt8189</span></td>
+  <td>NP8</td>
+  <td>MDLA 5.3</td>
+  <td>Android + Yocto</td>
+  <td><span class="tag tag-orange">需单独下载</span> SDK All-In-One Bundle 不包含 mt8189</td>
+</tr>
+<tr>
+  <td><span class="new">Genio-520</span></td>
+  <td><span class="info">mt8189</span></td>
+  <td>NP8</td>
+  <td>MDLA 5.3</td>
+  <td>Android + Yocto</td>
+  <td>同上</td>
+</tr>
+<tr>
+  <td><span class="new">Genio-510</span></td>
+  <td><span class="info">mt8390</span></td>
+  <td>NP6</td>
+  <td>—</td>
+  <td>Android + Yocto</td>
+  <td>SDK bundle</td>
+</tr>
+<tr>
+  <td><span class="new">Dimensity 9400</span></td>
+  <td><span class="info">mt6991</span></td>
+  <td>NP8</td>
+  <td>MDLA 5.3</td>
+  <td>Android</td>
+  <td>NDA Basic/Premium</td>
+</tr>
+<tr>
+  <td><span class="new">Dimensity 9300</span></td>
+  <td><span class="info">mt6989</span></td>
+  <td>NP7/NP8</td>
+  <td>MDLA 5.2</td>
+  <td>Android</td>
+  <td>NDA Basic/Premium</td>
+</tr>
+</table>
+
+<div class="issue-card critical">
+  <div class="title"><span class="cross">❌</span> 关键错误：SoC代号缺失</div>
+  <div class="detail">之前的 platform_profile 缺少 SoC 代号（mt6991, mt6989, mt8189），而 SDK bundle 的目录结构按代号组织。<br>
+  <strong>修复：</strong> 在 profile 中添加 <code>soc_codename</code> 字段，并记录 SDK 下载路径规则。</div>
+</div>
+
+<div class="issue-card critical">
+  <div class="title"><span class="cross">❌</span> 关键错误：Genio-720 SDK 不在 All-In-One Bundle 中</div>
+  <div class="detail">Genio-720/520 对应 mt8189，但 NeuroPilot SDK All-In-One Bundle <strong>不包含 mt8189 二进制文件</strong>。<br>
+  需要从 NeuroPilot 门户单独下载 mt8189 包。<br>
+  <strong>修复：</strong> 在 profile 中记录 <code>sdk_download_note</code> 字段。</div>
+</div>
+
+<h3>1.3 NDA 访问层级</h3>
+<table class="comparison">
+<tr><th>版本</th><th>目标用户</th><th>功能</th><th>需要NDA</th><th>门户</th></tr>
+<tr>
+  <td><span class="tag tag-green">NeuroPilot Public</span></td>
+  <td>任何人</td>
+  <td>有限（仅NP8 Converter + TFLite Shim API）</td>
+  <td>否</td>
+  <td>neuropilot-developer.mediatek.com</td>
+</tr>
+<tr>
+  <td><span class="tag tag-blue">NeuroPilot Basic</span></td>
+  <td>企业开发者</td>
+  <td>完整</td>
+  <td>是</td>
+  <td>neuropilot.mediatek.com</td>
+</tr>
+<tr>
+  <td><span class="tag tag-purple">NeuroPilot Premium</span></td>
+  <td>OEM</td>
+  <td>完整 + 高级功能</td>
+  <td>是</td>
+  <td>neuropilot.mediatek.com</td>
+</tr>
+</table>
+
+<div class="issue-card warning">
+  <div class="title"><span class="warn">⚠</span> 缺失：NDA访问级别未记录</div>
+  <div class="detail">当前 platform_profile 未区分 Public/Basic/Premium 功能差异。某些高级量化特性（如INT4）可能仅在NDA Basic/Premium下可用。</div>
+</div>
+
+<h3>1.4 转换流程（真实）</h3>
+<div class="flow">
+  <div class="flow-step">PyTorch/TF 模型<div class="tool">.pt / .pb / .h5</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step active">NP Converter<div class="tool">--tflite_op_export_spec</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">TFLite 模型<div class="tool">.tflite</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step active">Neuron Compiler<div class="tool">ncc-tflite (SoC专属)</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">DLA 文件<div class="tool">.dla</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step active">Neuron Runtime<div class="tool">neuronrt / NeuronRT API</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">推理结果</div>
+</div>
+
+<div class="issue-card info">
+  <div class="title"><span class="info">ℹ</span> 重要：ncc-tflite 是SoC专属的</div>
+  <div class="detail">ncc-tflite 二进制文件按 SoC 代号分目录（mt6991/, mt8189/ 等）。不同 SoC 需要使用对应的编译器版本。<br>
+  之前的 catalog.py 将 ncc-tflite 作为通用工具，但实际上它是 platform-specific 的。</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>2. Qualcomm QNN SDK 对比</h2>
+
+<h3>2.1 工具链名称与CLI</h3>
+<table class="comparison">
+<tr><th width="30%">项目</th><th width="35%">之前（错误）</th><th width="35%">现在（基于真实文档）</th></tr>
+<tr>
+  <td>转换器名称</td>
+  <td><span class="old">qnn-converter</span>（不存在）</td>
+  <td><span class="new">qnn-pytorch-converter</span> (TorchScript → QNN)<br><span class="new">qnn-onnx-converter</span> (ONNX → QNN)<br>两个不同的转换器</td>
+</tr>
+<tr>
+  <td>PyTorch 转换</td>
+  <td><span class="old">未指定参数</span></td>
+  <td>必须指定 <code>--input_dim</code>：<br><code>qnn-pytorch-converter --input_network model.pt --input_dim "input" 1,3,299,299 --output_path model.cpp</code></td>
+</tr>
+<tr>
+  <td>ONNX 转换</td>
+  <td><span class="old">未指定参数</span></td>
+  <td>支持 <code>--dry_run</code> 分析不支持的算子<br>支持 ONNX Opset ≤ 24<br>自动运行 onnx-simplifier</td>
+</tr>
+<tr>
+  <td>编译器名称</td>
+  <td><span class="old">qnn-context-binary-generator</span>（名称正确）</td>
+  <td><span class="new">qnn-context-binary-generator</span> <span class="tag tag-green">✓</span><br>参数：<code>--backend libQnnHtp.so --model model.so --config_file config.json --binary_file output.serialized</code></td>
+</tr>
+<tr>
+  <td>运行时后端</td>
+  <td><span class="old">"qnn" 泛称</span></td>
+  <td>具体后端库：<br><code>libQnnHtp.so</code> (HTP/NPU)<br><code>libQnnCpu.so</code> (CPU)<br><code>libQnnGpu.so</code> (GPU)</td>
+</tr>
+</table>
+
+<h3>2.2 HTP 性能模式（真实配置）</h3>
+<table class="comparison">
+<tr><th>性能模式</th><th>说明</th><th>之前是否记录</th></tr>
+<tr><td><code>burst</code></td><td>最大性能，高功耗</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>sustained_high_performance</code></td><td>持续高性能，适合长时间推理</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>high_performance</code></td><td>高性能模式</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>balanced</code></td><td>性能/功耗平衡</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>default</code></td><td>默认模式</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>low_balanced</code></td><td>低功耗平衡</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>power_saver</code></td><td>省电模式</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>high_power_saver</code></td><td>高性能省电</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>low_power_saver</code></td><td>低功耗省电</td><td><span class="cross">✗</span></td></tr>
+</table>
+
+<div class="issue-card critical">
+  <div class="title"><span class="cross">❌</span> 关键错误：QNN 配置格式未记录</div>
+  <div class="detail">真实的 QNN 配置使用 JSON 格式，包含 <code>backend_extensions</code> 结构：<br>
+  <div class="code-block">{
+  "backend_extensions": {
+    "shared_library_path": "path/to/libQnnHtpNetRunExtensions.so",
+    "config_file_path": "path/to/htp_config.json"
+  },
+  "graphs": [{
+    "name": "graph_name",
+    "perf_profile": "burst",
+    "slc_allocator": true
+  }]
+}</div>
+  之前的 vendor_extensions 只记录了简单的 key-value，没有这个结构。</div>
+</div>
+
+<h3>2.3 转换流程（真实）</h3>
+<div class="flow">
+  <div class="flow-step">PyTorch 模型<div class="tool">torch.jit.trace → .pt</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step active">qnn-pytorch-converter<div class="tool">--input_dim "input" 1,3,224,224</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">QNN 模型 (.cpp/.so)<div class="tool">QNN IR</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step active">qnn-context-binary-generator<div class="tool">--backend libQnnHtp.so --config_file htp.json</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step">Context Binary<div class="tool">.serialized / .bin</div></div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-step active">qnn-net-run / Runtime API<div class="tool">推理执行</div></div>
+</div>
+
+<div class="issue-card critical">
+  <div class="title"><span class="cross">❌</span> 关键错误：转换器名称完全错误</div>
+  <div class="detail">代码中使用的 <code>qnn-converter</code> 这个工具<strong>不存在</strong>。正确的工具是：<br>
+  • <code>qnn-pytorch-converter</code>（输入 TorchScript .pt）<br>
+  • <code>qnn-onnx-converter</code>（输入 ONNX .onnx）<br>
+  两者参数完全不同。</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>3. AWS Device Farm 对比</h2>
+
+<h3>3.1 API 流程（真实）</h3>
+<table class="comparison">
+<tr><th>步骤</th><th>API/CLI</th><th>说明</th></tr>
+<tr><td>1. 创建项目</td><td><code>create-project</code></td><td>所有测试的顶层容器</td></tr>
+<tr><td>2. 创建设备池</td><td><code>create-device-pool</code></td><td>定义设备筛选规则</td></tr>
+<tr><td>3. 上传应用</td><td><code>create-upload</code> (type=ANDROID_APP)</td><td>被测应用 APK</td></tr>
+<tr><td>4. 上传测试包</td><td><code>create-upload</code> (type=INSTRUMENTATION / APPIUM_PYTHON 等)</td><td>测试代码 zip</td></tr>
+<tr><td>5. 上传测试规范</td><td><code>create-upload</code> (type=CUSTOM_TEST_SPEC)</td><td>YAML 测试规范</td></tr>
+<tr><td>6. 调度运行</td><td><code>schedule-run</code></td><td>指定 project_arn, device_pool_arn, app_arn, test_package_arn</td></tr>
+<tr><td>7. 获取结果</td><td><code>get-run</code> / <code>list-artifacts</code></td><td>轮询状态，获取测试结果和日志</td></tr>
+</table>
+
+<h3>3.2 设备筛选属性（真实）</h3>
+<table class="comparison">
+<tr><th>属性</th><th>操作符</th><th>示例值</th><th>之前是否记录</th></tr>
+<tr><td><code>PLATFORM</code></td><td>EQUALS</td><td>ANDROID, IOS</td><td><span class="check">✓</span></td></tr>
+<tr><td><code>OS_VERSION</code></td><td>EQUALS, GREATER_THAN, LESS_THAN, IN, BETWEEN</td><td>14.0, 15.0</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>MODEL</code></td><td>EQUALS, CONTAINS</td><td>Pixel 8, Galaxy S24</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>MANUFACTURER</code></td><td>EQUALS</td><td>Samsung, Google, Xiaomi</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>FORM_FACTOR</code></td><td>EQUALS</td><td>PHONE, TABLET</td><td><span class="cross">✗</span></td></tr>
+<tr><td><code>AVAILABILITY</code></td><td>EQUALS</td><td>AVAILABLE, HIGHLY_AVAILABLE, BUSY</td><td><span class="cross">✗</span></td></tr>
+</table>
+
+<h3>3.3 测试类型（真实）</h3>
+<table class="comparison">
+<tr><th>测试类型</th><th>说明</th><th>适用场景</th></tr>
+<tr><td><code>INSTRUMENTATION</code></td><td>Android Instrumentation 测试</td><td>原生 Android 测试</td></tr>
+<tr><td><code>APPIUM_PYTHON</code></td><td>Appium + Python 测试</td><td><span class="tag tag-green">ML推理测试推荐</span></td></tr>
+<tr><td><code>APPIUM_JAVA_TESTNG</code></td><td>Appium + Java TestNG</td><td>Java 测试框架</td></tr>
+<tr><td><code>XCTEST</code></td><td>XCTest (iOS)</td><td>iOS 原生测试</td></tr>
+<tr><td><code>CUSTOM</code></td><td>自定义测试规范</td><td>特殊需求</td></tr>
+</table>
+
+<div class="issue-card warning">
+  <div class="title"><span class="warn">⚠</span> 缺失：测试规范 YAML 格式</div>
+  <div class="detail">AWS Device Farm 使用 YAML 测试规范定义测试阶段：<br>
+  <div class="code-block"><span class="comment"># customtestspec.yml</span>
+<span class="keyword">version</span>: 0.1
+<span class="keyword">phases</span>:
+  <span class="keyword">INSTALL</span>:
+    <span class="keyword">commands</span>:
+      - <span class="string">adb push model.dla /data/local/tmp/</span>
+      - <span class="string">adb push inference_test.py /data/local/tmp/</span>
+  <span class="keyword">TEST</span>:
+    <span class="keyword">commands</span>:
+      - <span class="string">python3 /data/local/tmp/inference_test.py</span>
+  <span class="keyword">TEARDOWN</span>:
+    <span class="keyword">commands</span>:
+      - <span class="string">adb shell rm /data/local/tmp/model.dla</span></div>
+  这是 ML 模型测试的关键格式，之前完全未记录。</div>
+</div>
+
+<div class="issue-card warning">
+  <div class="title"><span class="warn">⚠</span> 缺失：定价和限制</div>
+  <div class="detail">• 前 250 设备分钟免费<br>
+  • 之后 $0.17/设备分钟<br>
+  • 无限制测试计划：$250/设备/月<br>
+  之前的 vendor_adapter 未记录这些约束。</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>4. 代码架构审计结果</h2>
+
+<h3>4.1 文件变更总览</h3>
+<div class="file-tree">
+<span class="modified">M</span> src/model_optimization_mcp/store.py <span class="tag tag-blue">+5 collections</span><br>
+<span class="modified">M</span> src/model_optimization_mcp/services/catalog.py <span class="tag tag-blue">+平台配置 +适配器 +技能 +模板</span><br>
+<span class="modified">M</span> src/model_optimization_mcp/services/intent_planner.py <span class="tag tag-blue">+平台感知提取 +问题 +配方</span><br>
+<span class="modified">M</span> src/model_optimization_mcp/services/device_farm.py <span class="tag tag-blue">+平台感知设备矩阵</span><br>
+<span class="modified">M</span> src/model_optimization_mcp/services/skill_orchestrator.py <span class="tag tag-blue">+平台特定工作流</span><br>
+<span class="new-file">A</span> skills/platform-conversion-mediatek/SKILL.md<br>
+<span class="new-file">A</span> skills/platform-conversion-qualcomm/SKILL.md<br>
+<span class="new-file">A</span> skills/device-farm-aws/SKILL.md<br>
+<span class="new-file">A</span> skills/platform-failure-analysis/SKILL.md<br>
+<span class="new-file">A</span> skills/platform-profiling/SKILL.md<br>
+<span class="new-file">A</span> docs/v2-comprehensive-design.md <span class="tag tag-purple">1548行设计文档</span><br>
+<span class="new-file">A</span> docs/v2-research-audit-report.html <span class="tag tag-green">本文件</span>
+</div>
+
+<h3>4.2 关键代码问题</h3>
+
+<div class="issue-card critical">
+  <div class="title">1. 转换器名称错误传播到多个文件</div>
+  <div class="detail">
+    <code>catalog.py</code> 中 <code>DEFAULT_VENDOR_ADAPTERS</code> 和 <code>DEFAULT_TASK_TEMPLATES</code> 使用了错误的工具名称：<br>
+    • <span class="old">"converter": "qnn-converter"</span> → 应为 <code>qnn-pytorch-converter</code> / <code>qnn-onnx-converter</code><br>
+    • <span class="old">"compiler": "qnn-context-binary-generator"</span> → 名称正确，但参数描述不准确<br><br>
+    <code>DEFAULT_PLATFORM_PROFILES</code> 中 <code>"converter": "qnn-converter"</code> 同样错误。
+  </div>
+</div>
+
+<div class="issue-card critical">
+  <div class="title">2. MediaTek 工具链描述过于简化</div>
+  <div class="detail">
+    <code>DEFAULT_VENDOR_ADAPTERS["mediatek-neuropilot"]</code> 的 <code>conversion_pipeline</code>：<br>
+    • <span class="old">{"step": "convert", "tool": "np-converter", ...}</span> — 工具名应为 "NP Converter"<br>
+    • <span class="old">{"step": "quantize", "tool": "ptq-pipeline", ...}</span> — 不存在 "ptq-pipeline" 工具，PTQ 是 NP Converter 的内置功能<br>
+    • <span class="old">{"step": "compile", "tool": "ncc-tflite", ...}</span> — 名称正确但需注明是 SoC 专属版本
+  </div>
+</div>
+
+<div class="issue-card warning">
+  <div class="title">3. SoC codename 缺失</div>
+  <div class="detail">
+    <code>DEFAULT_PLATFORM_PROFILES</code> 中所有平台都缺少 <code>soc_codename</code> 字段。<br>
+    真实映射：Dimensity 9400 = mt6991, Dimensity 9300 = mt6989, Genio-720 = mt8189。<br>
+    这个字段对于 SDK 二进制文件定位至关重要。
+  </div>
+</div>
+
+<div class="issue-card warning">
+  <div class="title">4. QNN HTP 性能模式未集成</div>
+  <div class="detail">
+    <code>DEFAULT_VENDOR_ADAPTERS["qualcomm-qnn"]</code> 和 <code>DEFAULT_PLATFORM_PROFILES["qualcomm-snapdragon-*"]</code> 都未记录 HTP 性能模式。<br>
+    真实场景中，选择正确的性能模式（burst vs balanced vs power_saver）对推理性能影响巨大。
+  </div>
+</div>
+
+<div class="issue-card warning">
+  <div class="title">5. NDA 访问级别未记录</div>
+  <div class="detail">
+    MediaTek NeuroPilot 有 Public/Basic/Premium 三个层级，不同层级可用的量化方案和工具不同。<br>
+    当前 platform_profile 未区分，可能导致用户尝试使用需要 NDA 的功能。
+  </div>
+</div>
+
+<div class="issue-card warning">
+  <div class="title">6. device_farm.py 的 _simulate_device_result 缺少 Qualcomm 延迟偏差</div>
+  <div class="detail">
+    <code>_simulate_device_result</code> 中有 <code>dimensity</code> 和 <code>kirin</code> 的延迟偏差，但缺少 <code>snapdragon</code> 的偏差。<br>
+    真实场景中，Snapdragon 8 Gen 3 的 NPU 性能通常优于 Dimensity 9300。
+  </div>
+</div>
+
+<div class="issue-card info">
+  <div class="title">7. intent_planner 中 vendor_hint 检测可改进</div>
+  <div class="detail">
+    当前检测关键词较基础。可以添加：<br>
+    • <code>"ncc"</code>, <code>"neuron"</code>, <code>"dla"</code> → MediaTek<br>
+    • <code>"hexagon"</code>, <code>"htp"</code>, <code>"qnn"</code> → Qualcomm<br>
+    • SoC 型号关键词（mt6991, sm8650 等）
+  </div>
+</div>
+
+<div class="issue-card info">
+  <div class="title">8. Skill 文档缺少真实 CLI 示例</div>
+  <div class="detail">
+    <code>platform-conversion-mediatek/SKILL.md</code> 和 <code>platform-conversion-qualcomm/SKILL.md</code> 描述了工作流但缺少真实的命令行示例。<br>
+    应添加如：<br>
+    <code>NP Converter --input_network model.pt --output_path model.tflite --tflite_op_export_spec np='sdk_v6'</code><br>
+    <code>qnn-pytorch-converter --input_network model.pt --input_dim "input" 1,3,224,224 --output_path model.cpp</code>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>5. 架构改进空间</h2>
+
+<h3>5.1 平台配置需要增加的字段</h3>
+<table class="comparison">
+<tr><th>字段</th><th>说明</th><th>影响</th></tr>
+<tr><td><code>soc_codename</code></td><td>SoC 内部代号（mt6991, mt8189 等）</td><td><span class="tag tag-red">关键</span> SDK 二进制定位</td></tr>
+<tr><td><code>sdk_access_tier</code></td><td>Public / Basic / Premium</td><td><span class="tag tag-orange">重要</span> 功能可用性</td></tr>
+<tr><td><code>sdk_download_note</code></td><td>特殊下载说明（如Genio-720需单独下载）</td><td><span class="tag tag-orange">重要</span> 用户体验</td></tr>
+<tr><td><code>htp_performance_modes</code></td><td>Qualcomm HTP 性能模式列表</td><td><span class="tag tag-orange">重要</span> 性能调优</td></tr>
+<tr><td><code>converter_cli_syntax</code></td><td>转换器真实CLI语法和参数</td><td><span class="tag tag-red">关键</span> 自动化执行</td></tr>
+<tr><td><code>calibration_data_format</code></td><td>校准数据格式和要求</td><td><span class="tag tag-orange">重要</span> PTQ流程</td></tr>
+<tr><td><code>npu_fallback_ops</code></td><td>已知会回退到CPU的算子列表</td><td><span class="tag tag-blue">有用</span> 预判失败</td></tr>
+</table>
+
+<h3>5.2 Vendor Adapter 需要增加的功能</h3>
+<table class="comparison">
+<tr><th>功能</th><th>当前状态</th><th>建议</th></tr>
+<tr><td>dry_run 模式</td><td><span class="cross">✗ 缺失</span></td><td>Qualcomm 的 <code>--dry_run</code> 和 MediaTek 的 op 兼容性检查应作为独立步骤</td></tr>
+<tr><td>多阶段错误分类</td><td><span class="cross">✗ 缺失</span></td><td>conversion_failure / compile_failure / runtime_failure 应分开处理</td></tr>
+<tr><td>Profiler 集成</td><td><span class="warn">仅记录名称</span></td><td>Neuron Studio 和 Qualcomm Profiler 的实际输出格式和解析逻辑</td></tr>
+<tr><td>SDK 版本绑定</td><td><span class="cross">✗ 缺失</span></td><td>工具版本必须与目标 SoC 的 NPU 版本匹配</td></tr>
+</table>
+
+<h3>5.3 设备农场需要增加的功能</h3>
+<div class="two-col">
+  <div class="section-box">
+    <h3>AWS Device Farm 集成</h3>
+    <ul style="font-size: 14px; padding-left: 20px;">
+      <li>创建真实的测试规范 YAML 生成器</li>
+      <li>实现 boto3 API 调用封装</li>
+      <li>设备筛选器支持 MANUFACTURER, MODEL, OS_VERSION</li>
+      <li>测试结果解析和 KPI 提取</li>
+      <li>定价感知调度（250免费分钟）</li>
+    </ul>
+  </div>
+  <div class="section-box">
+    <h3>本地设备农场</h3>
+    <ul style="font-size: 14px; padding-left: 20px;">
+      <li>ADB 连接管理</li>
+      <li>模型推送和推理执行</li>
+      <li>systrace / perfetto 集成</li>
+      <li>功耗和温度监控</li>
+      <li>多设备并行测试调度</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>6. 测试结果</h2>
+<table class="comparison">
+<tr><th>测试</th><th>状态</th><th>说明</th></tr>
+<tr><td>test_intake_recipe_device_loop</td><td><span class="check">✅ PASSED</span></td><td>端到端 intake → recipe → device feedback 循环</td></tr>
+<tr><td>test_onboarding_flow</td><td><span class="check">✅ PASSED</span></td><td>引导式 onboarding 流程</td></tr>
+<tr><td>test_resource_manager</td><td><span class="check">✅ PASSED</span></td><td>GPU 租赁生命周期</td></tr>
+<tr><td>test_workspace_manager</td><td><span class="check">✅ PASSED</span></td><td>工作空间文件安全</td></tr>
+</table>
+<p style="margin-top: 12px; color: var(--text-dim); font-size: 13px;">注意：现有测试覆盖了原有功能的回归。新增的平台感知功能尚未有专门的单元测试。</p>
+
+<!-- ============================================================ -->
+<h2>7. 优先修复清单</h2>
+<table class="comparison">
+<tr><th width="5%">#</th><th width="10%">优先级</th><th width="25%">修复项</th><th width="60%">说明</th></tr>
+<tr><td>1</td><td><span class="tag tag-red">P0</span></td><td>修正 QNN 转换器名称</td><td><code>qnn-converter</code> → <code>qnn-pytorch-converter</code> / <code>qnn-onnx-converter</code></td></tr>
+<tr><td>2</td><td><span class="tag tag-red">P0</span></td><td>修正 MediaTek 转换器名称</td><td><code>np-converter</code> → <code>NP Converter</code></td></tr>
+<tr><td>3</td><td><span class="tag tag-red">P0</span></td><td>添加 SoC codename</td><td>所有 platform_profile 添加 <code>soc_codename</code></td></tr>
+<tr><td>4</td><td><span class="tag tag-red">P0</span></td><td>修正 vendor_adapter 转换流水线</td><td>使用真实工具名称和参数</td></tr>
+<tr><td>5</td><td><span class="tag tag-orange">P1</span></td><td>添加 HTP 性能模式</td><td>Qualcomm platform_profile 添加性能模式列表</td></tr>
+<tr><td>6</td><td><span class="tag tag-orange">P1</span></td><td>添加 NDA 访问级别</td><td>MediaTek platform_profile 添加 <code>sdk_access_tier</code></td></tr>
+<tr><td>7</td><td><span class="tag tag-orange">P1</span></td><td>添加 SDK 下载说明</td><td>Genio-720/520 需要单独下载</td></tr>
+<tr><td>8</td><td><span class="tag tag-orange">P1</span></td><td>修正 task_template 转换器名称</td><td>16个 task template 中的工具名称</td></tr>
+<tr><td>9</td><td><span class="tag tag-blue">P2</span></td><td>添加真实 CLI 示例到 Skill</td><td>platform-conversion-* 技能文档</td></tr>
+<tr><td>10</td><td><span class="tag tag-blue">P2</span></td><td>添加 Qualcomm 延迟偏差到模拟器</td><td>device_farm.py _simulate_device_result</td></tr>
+<tr><td>11</td><td><span class="tag tag-blue">P2</span></td><td>改进 vendor_hint 检测关键词</td><td>intent_planner.py _extract_intent</td></tr>
+<tr><td>12</td><td><span class="tag tag-blue">P2</span></td><td>添加平台感知功能的单元测试</td><td>新功能需要测试覆盖</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2>8. 数据来源</h2>
+<table class="comparison">
+<tr><th>来源</th><th>URL</th><th>信息类型</th></tr>
+<tr><td>MediaTek NeuroPilot Developer Portal</td><td>neuropilot-developer.mediatek.com</td><td>NP8 Public 功能、工具列表</td></tr>
+<tr><td>MediaTek Genio Community</td><td>genio-community.mediatek.com</td><td>SoC代号映射、SDK下载路径、NP版本对应</td></tr>
+<tr><td>MediaTek Dimensity Developer Center</td><td>developer.mediatek.com</td><td>Neuron SDK 组件详情、NNAPI 集成</td>
+<tr><td>Qualcomm QAIRT SDK Docs</td><td>docs.qualcomm.com</td><td>QNN 转换器CLI、HTP后端选项、性能模式</td></tr>
+<tr><td>ONNX Runtime QNN EP</td><td>onnxruntime.ai</td><td>QNN 配置选项、context cache、profiling</td></tr>
+<tr><td>AWS Device Farm Developer Guide</td><td>docs.aws.amazon.com/devicefarm</td><td>API流程、设备筛选、测试规范YAML、定价</td></tr>
+<tr><td>HuggingFace QNN Models</td><td>huggingface.co</td><td>真实 QNN 编译流程（AI Hub）</td></tr>
+<tr><td>PyTorch ExecuTorch Qualcomm</td><td>docs.pytorch.org/executorch</td><td>QNN Backend 集成模式</td></tr>
+</table>
+
+<p style="margin-top: 40px; padding: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text-dim);">
+  本报告基于对 MediaTek NeuroPilot、Qualcomm QNN 和 AWS Device Farm 官方文档的真实研究生成。<br>
+  所有对比数据均来自上述来源，非推测或模拟数据。<br>
+  生成时间：2026-05-29 · 工具：Sisyphus Agent · 版本：v2-research-audit
+</p>
+
+</div>
+</body>
+</html>
