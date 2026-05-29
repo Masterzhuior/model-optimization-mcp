@@ -74,6 +74,111 @@ class DeviceFarm:
             ],
         }
 
+    # v2: Platform-aware device matrix generation
+    def create_platform_aware_device_matrix(
+        self,
+        *,
+        device_pool_id: str,
+        platform_id: str | None = None,
+        vendor: str | None = None,
+        soc: str | None = None,
+        min_os_version: str | None = None,
+        max_devices: int = 8,
+        coverage_strategy: str = "representative",
+    ) -> dict[str, Any]:
+        """Create a device matrix with platform-aware selection.
+
+        coverage_strategy:
+          - "representative": pick one device per unique SoC
+          - "comprehensive": pick all matching devices up to max_devices
+          - "exhaustive": pick all matching devices, no limit
+        """
+        devices = self.list_devices(device_pool_id=device_pool_id, status="ready")["devices"]
+
+        # Filter by platform profile if specified
+        if platform_id:
+            profile = self.store.get("platform_profiles", platform_id)
+            if profile:
+                profile_soc = profile.get("soc")
+                profile_vendor = profile.get("vendor")
+                if profile_vendor and not vendor:
+                    vendor = profile_vendor
+                if profile_soc and not soc:
+                    soc = profile_soc
+
+        if vendor:
+            devices = [d for d in devices if self._device_matches_vendor(d, vendor)]
+        if soc:
+            devices = [d for d in devices if d.get("soc") == soc]
+        if min_os_version:
+            devices = [d for d in devices if self._os_meets_minimum(d.get("os_version", ""), min_os_version)]
+
+        # Apply coverage strategy
+        if coverage_strategy == "representative":
+            seen_socs: set[str] = set()
+            unique_devices = []
+            for device in devices:
+                device_soc = device.get("soc", "unknown")
+                if device_soc not in seen_socs:
+                    seen_socs.add(device_soc)
+                    unique_devices.append(device)
+            selected = unique_devices[:max_devices]
+        elif coverage_strategy == "exhaustive":
+            selected = devices
+        else:
+            selected = devices[:max_devices]
+
+        return {
+            "device_pool_id": device_pool_id,
+            "platform_id": platform_id,
+            "vendor": vendor,
+            "coverage_strategy": coverage_strategy,
+            "total_matching": len(devices),
+            "selected_count": len(selected),
+            "matrix": [
+                {
+                    "device_id": device["device_id"],
+                    "platform": device.get("platform"),
+                    "soc": device.get("soc"),
+                    "accelerators": device.get("accelerators", []),
+                    "os_version": device.get("os_version"),
+                    "memory_gb": device.get("memory_gb"),
+                    "vendor": self._detect_device_vendor(device),
+                }
+                for device in selected
+            ],
+        }
+
+    def _device_matches_vendor(self, device: dict[str, Any], vendor: str) -> bool:
+        """Check if a device matches a vendor by SoC name patterns."""
+        soc = device.get("soc", "").lower()
+        vendor_patterns = {
+            "mediatek": ["dimensity", "genio", "helio"],
+            "qualcomm": ["snapdragon"],
+            "hisilicon": ["kirin"],
+            "samsung": ["exynos"],
+            "apple": ["a14", "a15", "a16", "a17", "a18", "m1", "m2", "m3", "m4"],
+        }
+        patterns = vendor_patterns.get(vendor, [vendor])
+        return any(pattern in soc for pattern in patterns)
+
+    def _detect_device_vendor(self, device: dict[str, Any]) -> str:
+        """Detect vendor from device SoC name."""
+        soc = device.get("soc", "").lower()
+        if "dimensity" in soc or "genio" in soc or "helio" in soc:
+            return "mediatek"
+        if "snapdragon" in soc:
+            return "qualcomm"
+        if "kirin" in soc:
+            return "hisilicon"
+        if "exynos" in soc:
+            return "samsung"
+        return "unknown"
+
+    def _os_meets_minimum(self, os_version: str, minimum: str) -> bool:
+        """Simple OS version comparison."""
+        return os_version.lower().strip() >= minimum.lower().strip()
+
     def submit_device_test(
         self,
         *,
@@ -258,6 +363,8 @@ def _simulate_device_result(
         latency_bias = 1.25
     elif "dimensity" in soc:
         latency_bias = 1.08
+    elif "snapdragon" in soc:
+        latency_bias = 0.85  # Snapdragon NPU typically faster
     accuracy_drop = round(0.004 + rng.random() * 0.012, 4)
     latency_p50 = round((18 + rng.random() * 8) * latency_bias, 2)
     latency_p95 = round(latency_p50 * (1.55 + rng.random() * 0.35), 2)

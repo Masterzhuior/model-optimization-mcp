@@ -41,6 +41,13 @@ class SkillOrchestrator:
         device_enabled = include_device_farm
         if device_enabled is None and recipe:
             device_enabled = bool(recipe.get("spec", {}).get("device_farm", {}).get("enabled"))
+
+        # v2: Detect platform vendor for platform-specific workflow steps
+        platform_spec = (recipe or {}).get("spec", {}).get("platform", {}) if recipe else {}
+        vendor = platform_spec.get("vendor")
+        platform_id = platform_spec.get("platform_id")
+        is_mobile = bool(vendor)
+
         plan_id = short_id("hplan")
         steps = [
             _hybrid_step(
@@ -61,6 +68,42 @@ class SkillOrchestrator:
                 "recipe-authoring",
                 "Use synthesize/validate recipe tools so the control plane has auditable state.",
             ),
+        ]
+
+        # v2: Insert platform-specific conversion steps before GPU execution
+        if vendor == "mediatek":
+            steps.extend([
+                _hybrid_step(
+                    "platform-conversion-mediatek",
+                    "mcp_tool",
+                    "platform-conversion-mediatek",
+                    f"Convert model using MediaTek NeuroPilot toolchain for {platform_id or 'Dimensity'} NPU.",
+                ),
+                _hybrid_step(
+                    "platform-compile-mediatek",
+                    "mcp_tool",
+                    "platform-conversion-mediatek",
+                    "Compile quantized TFLite to DLA format using ncc-tflite.",
+                ),
+            ])
+        elif vendor == "qualcomm":
+            steps.extend([
+                _hybrid_step(
+                    "platform-conversion-qualcomm",
+                    "mcp_tool",
+                    "platform-conversion-qualcomm",
+                    f"Convert model using Qualcomm QNN SDK for {platform_id or 'Snapdragon'} HTP.",
+                ),
+                _hybrid_step(
+                    "platform-compile-qualcomm",
+                    "mcp_tool",
+                    "platform-conversion-qualcomm",
+                    "Generate QNN context binary for HTP backend.",
+                ),
+            ])
+
+        # Standard GPU steps (server-side quantization still needed for calibration)
+        steps.extend([
             _hybrid_step(
                 "plan-capacity",
                 "mcp_tool",
@@ -79,30 +122,53 @@ class SkillOrchestrator:
                 "ptq-execution",
                 "Acquire lease, run quantization, run eval, and run benchmark.",
             ),
-        ]
+        ])
+
         if device_enabled:
-            steps.extend(
-                [
-                    _hybrid_step(
-                        "package-for-device-farm",
-                        "local_skill",
-                        "device-farm-evaluation",
-                        "Generate platform packaging metadata and deployment notes.",
-                    ),
-                    _hybrid_step(
-                        "run-device-farm",
-                        "mcp_tool",
-                        "device-farm-evaluation",
-                        "Submit artifact to device farm and collect KPI matrix.",
-                    ),
-                    _hybrid_step(
-                        "analyze-regression",
-                        "hybrid",
-                        "kpi-regression-analysis",
-                        "Combine KPI report with local reasoning to propose a recipe revision.",
-                    ),
-                ]
-            )
+            steps.extend([
+                _hybrid_step(
+                    "package-for-device-farm",
+                    "local_skill",
+                    "device-farm-evaluation",
+                    "Generate platform packaging metadata and deployment notes.",
+                ),
+            ])
+
+            # v2: Select device farm adapter based on platform
+            if vendor == "aws" or (recipe or {}).get("spec", {}).get("device_farm", {}).get("platform") == "aws-device-farm":
+                steps.append(_hybrid_step(
+                    "run-aws-device-farm",
+                    "mcp_tool",
+                    "device-farm-aws",
+                    "Submit artifact to AWS Device Farm and collect device pool results.",
+                ))
+            else:
+                steps.append(_hybrid_step(
+                    "run-device-farm",
+                    "mcp_tool",
+                    "device-farm-evaluation",
+                    "Submit artifact to device farm and collect KPI matrix.",
+                ))
+
+            # v2: Platform-aware failure analysis
+            steps.extend([
+                _hybrid_step(
+                    "analyze-regression",
+                    "hybrid",
+                    "platform-failure-analysis" if is_mobile else "kpi-regression-analysis",
+                    "Analyze KPI failures with platform-specific remediation strategies.",
+                ),
+            ])
+
+            # v2: Platform profiling if vendor is specified
+            if vendor in {"mediatek", "qualcomm"}:
+                steps.append(_hybrid_step(
+                    "platform-profiling",
+                    "mcp_tool",
+                    "platform-profiling",
+                    f"Collect profiling data using {vendor}-specific profiling tools.",
+                ))
+
         steps.append(
             _hybrid_step(
                 "publish-report",
@@ -118,6 +184,12 @@ class SkillOrchestrator:
             "status": "draft",
             "created_at": utc_now_iso(),
             "steps": steps,
+            # v2: Platform metadata in plan
+            "platform": {
+                "vendor": vendor,
+                "platform_id": platform_id,
+                "is_mobile": is_mobile,
+            } if vendor else None,
         }
         self.store.upsert("workflow_plans", plan_id, plan)
         return plan

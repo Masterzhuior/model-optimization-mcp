@@ -39,6 +39,12 @@ COLLECTIONS = (
     "ports",
     "services",
     "audit_events",
+    # v2: Platform-aware model optimization
+    "platform_profiles",
+    "vendor_adapters",
+    "conversion_runs",
+    "profile_artifacts",
+    "failure_analyses",
 )
 
 

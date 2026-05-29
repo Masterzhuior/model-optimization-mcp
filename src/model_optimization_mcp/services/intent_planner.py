@@ -29,7 +29,8 @@ class IntentPlanner:
     ) -> dict[str, Any]:
         extracted = _extract_intent(utterance)
         answers = deep_merge(extracted, defaults or {})
-        questions = _build_questions(answers)
+        all_questions = _build_questions(answers)
+        required_questions = [q for q in all_questions if q.get("required", False)]
         session_id = short_id("intake")
         session = {
             "session_id": session_id,
@@ -38,8 +39,8 @@ class IntentPlanner:
             "utterance": utterance,
             "extracted": extracted,
             "answers": answers,
-            "questions": questions,
-            "status": "needs_input" if questions else "ready_for_recipe",
+            "questions": all_questions,
+            "status": "needs_input" if required_questions else "ready_for_recipe",
             "created_at": utc_now_iso(),
             "updated_at": utc_now_iso(),
         }
@@ -54,29 +55,32 @@ class IntentPlanner:
     ) -> dict[str, Any]:
         session = self._get_session(session_id)
         session["answers"] = deep_merge(session.get("answers", {}), answers)
-        session["questions"] = _build_questions(session["answers"])
-        session["status"] = "needs_input" if session["questions"] else "ready_for_recipe"
+        all_questions = _build_questions(session["answers"])
+        required_questions = [q for q in all_questions if q.get("required", False)]
+        session["questions"] = all_questions
+        session["status"] = "needs_input" if required_questions else "ready_for_recipe"
         session["updated_at"] = utc_now_iso()
         self.store.upsert("intake_sessions", session_id, session)
         return _session_response(session)
 
     def synthesize_recipe(self, *, session_id: str, force: bool = False) -> dict[str, Any]:
         session = self._get_session(session_id)
-        questions = _build_questions(session.get("answers", {}))
-        if questions and not force:
-            session["questions"] = questions
+        all_questions = _build_questions(session.get("answers", {}))
+        required_questions = [q for q in all_questions if q.get("required", False)]
+        if required_questions and not force:
+            session["questions"] = all_questions
             session["status"] = "needs_input"
             self.store.upsert("intake_sessions", session_id, session)
             return {
                 "status": "needs_input",
                 "summary": "More information is required before a safe quantization recipe can be created.",
                 "session_id": session_id,
-                "questions": questions,
+                "questions": required_questions,
             }
 
         recipe_id = short_id("qr")
         answers = session.get("answers", {})
-        recipe = _build_recipe_spec(recipe_id, session, answers, questions)
+        recipe = _build_recipe_spec(recipe_id, session, answers, all_questions)
         self.store.upsert("recipe_specs", recipe_id, recipe)
         session["status"] = "recipe_drafted"
         session["recipe_id"] = recipe_id
@@ -215,12 +219,53 @@ def _extract_intent(utterance: str) -> dict[str, Any]:
     elif "int8" in normalized or "8bit" in normalized or "8-bit" in normalized:
         precision = "int8"
     target = "mobile" if any(token in normalized for token in ("手机", "端侧", "mobile", "android")) else None
+
+    # v2: Platform-aware intent extraction
+    vendor_hint = None
+    platform_id_hint = None
+    # MediaTek detection keywords
+    mediatek_keywords = ("天玑", "dimensity", "联发科", "mediatek", "apu", "npu",
+                         "genio", "mt6991", "mt6989", "mt8189", "neuron")
+    # Qualcomm detection keywords
+    qualcomm_keywords = ("骁龙", "snapdragon", "高通", "qualcomm", "hexagon", "htp",
+                         "qnn", "sm8650", "sm8550")
+    if any(token in normalized for token in mediatek_keywords):
+        vendor_hint = "mediatek"
+    elif any(token in normalized for token in qualcomm_keywords):
+        vendor_hint = "qualcomm"
+
+    # Specific SoC detection
+    soc_patterns = {
+        "mediatek-dimensity-9400": ["dimensity-9400", "天玑9400", "d9400"],
+        "mediatek-dimensity-9300": ["dimensity-9300", "天玑9300", "d9300"],
+        "qualcomm-snapdragon-8gen3": ["snapdragon-8gen3", "骁龙8gen3", "8gen3", "sd8g3"],
+        "qualcomm-snapdragon-8gen2": ["snapdragon-8gen2", "骁龙8gen2", "8gen2", "sd8g2"],
+    }
+    for pid, keywords in soc_patterns.items():
+        if any(kw in normalized for kw in keywords):
+            platform_id_hint = pid
+            if pid.startswith("mediatek"):
+                vendor_hint = "mediatek"
+            elif pid.startswith("qualcomm"):
+                vendor_hint = "qualcomm"
+            break
+
+    # Inference path detection
+    inference_path = None
+    if any(token in normalized for token in ("离线", "offline", "dla", "编译")):
+        inference_path = "offline"
+    elif any(token in normalized for token in ("在线", "online", "tflite")):
+        inference_path = "online"
+
     return {
         "operation": "quantization" if any(token in normalized for token in ("量化", "quant", "ptq")) else None,
         "quantization_stage": quant_method,
         "model_hint": model_match.group(1) if model_match else None,
         "target_precision": precision,
         "deployment_target": target,
+        "vendor_hint": vendor_hint,
+        "platform_id_hint": platform_id_hint,
+        "inference_path": inference_path,
     }
 
 
@@ -283,6 +328,39 @@ def _build_questions(answers: dict[str, Any]) -> list[dict[str, Any]]:
             "例如 snapdragon-8gen3、dimensity-9300、kirin-9000s。",
             required=True,
         )
+        # v2: Platform-specific questions for mobile/edge deployment
+        _ask_if_missing(
+            questions,
+            answers,
+            "platform.vendor",
+            "目标芯片厂商是什么？",
+            "MediaTek (天玑/Genio)、Qualcomm (骁龙)、其他。用于选择正确的转换工具链。",
+            required=False,
+        )
+        _ask_if_missing(
+            questions,
+            answers,
+            "platform.platform_id",
+            "目标平台型号是什么？",
+            "例如 mediatek-dimensity-9400、qualcomm-snapdragon-8gen3。用于确定 NPU 版本和支持的算子。",
+            required=False,
+        )
+        _ask_if_missing(
+            questions,
+            answers,
+            "platform.inference_path",
+            "推理路径是什么？",
+            "online（TFLite/ONNX Runtime 运行时）或 offline（编译为 DLA/QNN context binary）。离线路径通常性能更高。",
+            required=False,
+        )
+        _ask_if_missing(
+            questions,
+            answers,
+            "platform.cpu_fallback_allowed",
+            "是否允许 CPU 回退？",
+            "如果模型有不支持的算子，NPU 可能需要回退到 CPU 执行。建议首次部署时允许回退。",
+            required=False,
+        )
     return questions
 
 
@@ -317,14 +395,16 @@ def _get_nested(payload: dict[str, Any], path: str) -> Any:
 
 
 def _session_response(session: dict[str, Any]) -> dict[str, Any]:
+    all_questions = session.get("questions", [])
+    required_questions = [q for q in all_questions if q.get("required", False)]
     return {
         "status": session["status"],
         "summary": "Intake session updated.",
         "session_id": session["session_id"],
         "extracted": session.get("extracted", {}),
         "answers": session.get("answers", {}),
-        "questions": session.get("questions", []),
-        "ready_for_recipe": not session.get("questions"),
+        "questions": all_questions,
+        "ready_for_recipe": not required_questions,
     }
 
 
@@ -403,8 +483,49 @@ def _build_recipe_spec(
                 "fallback_recipe": "int8_weight_only",
                 "promotion_requires_approval": True,
             },
+            # v2: Platform-specific deployment configuration
+            "platform": {
+                "platform_id": answers.get("platform.platform_id") or answers.get("platform_id_hint"),
+                "vendor": answers.get("platform.vendor") or answers.get("vendor_hint"),
+                "inference_path": answers.get("platform.inference_path") or answers.get("inference_path"),
+                "runtime": answers.get("platform.runtime"),
+                "runtime_version": answers.get("platform.runtime_version"),
+                "converter": answers.get("platform.converter"),
+                "compiler": answers.get("platform.compiler"),
+                "output_format": answers.get("platform.output_format"),
+                "cpu_fallback_allowed": bool(answers.get("platform.cpu_fallback_allowed", True)),
+                "cpu_fallback_ops": answers.get("platform.cpu_fallback_ops"),
+                "max_model_size_gb": answers.get("platform.max_model_size_gb"),
+                "max_context_length": answers.get("platform.max_context_length"),
+            },
+            # v2: Vendor-specific extensions
+            "vendor_extensions": _build_vendor_extensions(answers),
         },
     }
+
+
+def _build_vendor_extensions(answers: dict[str, Any]) -> dict[str, Any]:
+    """Build vendor-specific recipe extensions based on the detected or specified vendor."""
+    vendor = answers.get("platform.vendor") or answers.get("vendor_hint")
+    extensions: dict[str, Any] = {}
+    if vendor == "mediatek":
+        extensions["mediatek"] = {
+            "np_version": answers.get("mediatek.np_version"),
+            "mdla_version": answers.get("mediatek.mdla_version"),
+            "neuron_sdk_version": answers.get("mediatek.neuron_sdk_version"),
+            "converter_flags": answers.get("mediatek.converter_flags", {}),
+            "compiler_flags": answers.get("mediatek.compiler_flags", {}),
+            "profiler": "neuron-studio",
+        }
+    elif vendor == "qualcomm":
+        extensions["qualcomm"] = {
+            "htp_version": answers.get("qualcomm.htp_version"),
+            "sdk_version": answers.get("qualcomm.sdk_version"),
+            "backend": answers.get("qualcomm.backend", "htp"),
+            "use_mixed_precision": answers.get("qualcomm.use_mixed_precision", False),
+            "profiler": "qualcomm-profiling-tools",
+        }
+    return extensions
 
 
 def _candidate_methods(method: str, precision: str, deployment_target: str) -> list[str]:
