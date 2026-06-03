@@ -196,6 +196,7 @@ src/model_optimization_mcp/
     artifacts.py             artifact registry 和 report
 docs/
   enterprise-blueprint.md
+  infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md
   architecture.md
   tool-reference.md

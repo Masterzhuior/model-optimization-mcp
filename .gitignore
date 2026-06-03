@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+.omo/
 .mypy_cache/
 .coverage
 htmlcov/
@@ -13,4 +14,3 @@ build/
 .env
 .DS_Store
 Thumbs.db
-
