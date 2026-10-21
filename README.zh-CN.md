@@ -15,6 +15,8 @@
   ·
   <a href="docs/mediatek-neuropilot-comparable-design.md">MediaTek 对标研究</a>
   ·
+  <a href="docs/agentic-model-onboarding-platform-research.html">端侧 Onboarding 平台研究</a>
+  ·
   <a href="docs/architecture.md">架构</a>
   ·
   <a href="docs/tool-reference.md">工具清单</a>
@@ -63,6 +65,8 @@ flowchart LR
 - 分析 badcase、日志和 KPI 失败；
 - 生成面向工程师/评审的说明。
 
+量化分析、目标适配等专家 Skill 可以只返回分析或适配结论，作为 Recipe 的参考输入；由上层 Orchestrator 负责组合并生成最终 Recipe JSON，再通过 schema 校验。每个 Skill 不必直接产出 Recipe。
+
 适合 MCP 的事情：
 
 - 维护共享状态；
@@ -103,7 +107,7 @@ flowchart TB
 - 计算执行：资源快照、GPU lease、异步 job、workspace、量化、eval、benchmark、profiling、compile/export。
 - Device farm：设备池、设备矩阵、端侧 KPI 测试、KPI 报告。
 - 反馈闭环：分析失败 KPI，生成 recipe feedback，并创建新 recipe revision。
-- GitHub 展示：中英文 README、企业蓝图、架构、安全、部署、工具文档、CI、Docker、skill pack。
+- 项目文档：中英文 README、架构/安全/部署参考、CI、Docker 和 Skill pack。中英文 Onboarding 报告描述的是研究方案，不代表其中提出的服务都已实现。
 
 ## 快速开始
 
@@ -196,6 +200,8 @@ src/model_optimization_mcp/
     artifacts.py             artifact registry 和 report
 docs/
   enterprise-blueprint.md
+  agentic-model-onboarding-platform-research.html       中文研究报告
+  agentic-model-onboarding-platform-research.en.html    英文研究报告
   infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md
   architecture.md

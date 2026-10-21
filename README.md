@@ -15,6 +15,8 @@
   ·
   <a href="docs/mediatek-neuropilot-comparable-design.md">MediaTek Research</a>
   ·
+  <a href="docs/agentic-model-onboarding-platform-research.en.html">Onboarding Platform Research</a>
+  ·
   <a href="docs/architecture.md">Architecture</a>
   ·
   <a href="docs/tool-reference.md">Tool Reference</a>
@@ -63,6 +65,8 @@ Local skills are better for:
 - reasoning about failures and bad cases,
 - writing final human-facing summaries.
 
+Domain Skills can return analysis or adaptation findings as reference inputs. The upper-level Orchestrator owns final Recipe JSON generation and schema validation; every Skill does not need to produce a Recipe.
+
 MCP tools are better for:
 
 - shared server-side state,
@@ -104,7 +108,7 @@ flowchart TB
 - Compute execution: resource snapshots, GPU leases, async jobs, workspaces, quantization, eval, benchmark, profiling, compile/export.
 - Device farm: register/list devices, generate device matrices, submit mobile KPI tests, generate reports.
 - Feedback loop: analyze failed KPI reports, create recipe feedback, and synthesize revised recipes.
-- GitHub-ready docs: bilingual README, architecture docs, security docs, deployment docs, CI, Docker, and skill packs.
+- Project docs: bilingual README, architecture/security/deployment references, CI, Docker, and Skill packs. The bilingual onboarding report describes a research design, not a claim that every proposed service is already implemented.
 
 ## Quick Start
 
@@ -197,6 +201,8 @@ src/model_optimization_mcp/
     artifacts.py             artifact registry and reports
 docs/
   enterprise-blueprint.md
+  agentic-model-onboarding-platform-research.html       Chinese research report
+  agentic-model-onboarding-platform-research.en.html    English research report
   infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md
   architecture.md
