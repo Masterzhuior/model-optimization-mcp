@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Agentic Platform Research for On-Device Model Onboarding: Machine-actionable capability contracts, internal Python repository comprehension, Recipe first-pass generation success rate, and PoC design.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<title>On-Device Model Onboarding: From Tool Calling to Correct Usage</title>
+<style>
+:root {
+  color-scheme: dark;
+  --ground: #1c1c1c; --surface: #252525; --surface-raised: #2d2d2b;
+  --ink: #f1f1ef; --muted: #b8bbb4; --rule: #4b4c47;
+  --accent: #9caf98; --accent-ink: #1c1c1c;
+  --concrete: #c8c5ba; --concrete-ink: #20211e;
+  --sans: "Libre Franklin", "Segoe UI", "Microsoft YaHei", sans-serif;
+  --serif: "Source Serif 4", "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --page-margin: clamp(16px, 2.2vw, 32px);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 400 17px/1.58 var(--serif); text-rendering: optimizeLegibility; }
+body.light {
+  color-scheme: light; --ground: #c8c5ba; --surface: #d6d3ca; --surface-raised: #e4e1d8;
+  --ink: #20211e; --muted: #4f534e; --rule: #a3a198; --accent: #344c3d;
+  --accent-ink: #f1f1ef; --concrete: #262825; --concrete-ink: #f1f1ef;
+}
+a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+.topbar {
+  position: sticky; top: 0; z-index: 20; min-height: 60px; max-width: 1600px;
+  margin: 0 auto; padding: 8px var(--page-margin); display: flex; align-items: center;
+  justify-content: space-between; gap: 20px; background: var(--ground);
+}
+.brand { color: var(--ink); font: 600 14px/1.35 var(--sans); }
+.top-actions { display: flex; align-items: center; gap: 14px; }
+.source-date { color: var(--muted); font: 13px/1.4 var(--sans); }
+.pill-btn {
+  min-height: 44px; padding: 8px 4px; border: 0; border-radius: 0; background: transparent;
+  color: var(--ink); font: 14px/1.3 var(--sans); text-decoration: underline;
+  text-decoration-color: transparent; text-underline-offset: 5px;
+  transition: color .18s ease, text-decoration-color .18s ease;
+}
+.pill-btn:hover { color: var(--accent); text-decoration-color: currentColor; }
+.progress { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); width: 0; }
+.shell {
+  max-width: 1600px; margin: 0 auto; padding: 0 var(--page-margin); display: grid;
+  grid-template-columns: 208px minmax(0, 1fr); gap: clamp(24px, 3vw, 48px);
+}
+.side { position: sticky; top: 76px; align-self: start; height: calc(100vh - 88px); padding: 28px 0; overflow: auto; }
+.side-label { margin: 0 0 14px; color: var(--muted); font: 14px/1.4 var(--sans); }
+.side nav { display: grid; gap: 5px; }
+.side a { padding: 7px 0; color: var(--muted); font: 14px/1.45 var(--sans); text-decoration: none; transition: color .16s ease; }
+.side a:hover, .side a.active { color: var(--accent); }
+.side-note { margin-top: 28px; color: var(--muted); font: 15px/1.55 var(--serif); }
+.side-note strong { color: var(--ink); font-family: var(--sans); }
+main { min-width: 0; }
+.hero {
+  min-height: clamp(590px, calc(100svh - 76px), 760px); margin: 0 0 30px;
+  padding: clamp(28px, 3.8vw, 56px); display: grid;
+  grid-template-columns: 1.1fr .9fr; grid-template-areas: "copy demo" "foot foot";
+  align-items: center; column-gap: clamp(28px, 4vw, 60px); row-gap: 28px; overflow: hidden;
+  background: #1c1c1c; color: #f1f1ef;
+}
+body.light .hero { background: #252725; color: #f1f1ef; }
+.hero:before, .hero:after { display: none; }
+.hero-copy { grid-area: copy; max-width: 640px; }
+.hero h1 {
+  max-width: 100%; margin: 0 0 22px;
+  font: 700 clamp(2.35rem, 4vw, 3.5rem)/.98 var(--sans);
+  letter-spacing: -.035em; text-wrap: balance;
+}
+.hero-line { display: block; overflow: hidden; }
+.hero-line > span { display: block; }
+.hero-deck { max-width: 48ch; margin: 0 0 26px; color: #d1d2cc; font: 400 clamp(18px, 1.55vw, 21px)/1.48 var(--serif); }
+.hero-action {
+  min-height: 46px; display: inline-flex; align-items: center; gap: 12px; padding: 11px 17px;
+  background: var(--accent); color: var(--accent-ink); font: 600 14px/1.25 var(--sans);
+  text-decoration: none; transition: background .18s ease, color .18s ease, transform .18s ease;
+}
+.hero-action:hover { background: #c1d2bc; color: #1c1c1c; transform: translateY(-1px); }
+.hero-demo[data-ui] {
+  grid-area: demo; align-self: center; min-width: 0; padding: clamp(16px, 2vw, 24px);
+  background: #252525; color: #f1f1ef; border-radius: 2px;
+}
+.demo-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.demo-top h2 { margin: 0; font: 600 16px/1.35 var(--sans); }
+.demo-top p, .demo-note { margin: 4px 0 0; color: #b8bbb4; font: 13px/1.45 var(--sans); }
+.hero-demo[data-ui] .demo-tabs { display: flex; gap: 22px; margin-top: 18px; border-bottom: 1px solid #454641; }
+.demo-tab {
+  position: relative; min-height: 42px; padding: 8px 0; border: 0; background: transparent;
+  color: #b8bbb4; font: 14px/1.3 var(--sans);
+}
+.demo-tab:hover, .demo-tab[aria-pressed="true"] { color: #f1f1ef; }
+.hero-demo[data-ui] .demo-tab[aria-pressed="true"]:after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--accent);
+}
+.demo-body { display: grid; grid-template-columns: 1.1fr .9fr; gap: 16px; margin-top: 18px; }
+.demo-code { min-width: 0; padding: 12px; background: #20201f; }
+.demo-code-label { margin: 0 0 8px; color: #b8bbb4; font: 13px/1.35 var(--sans); }
+.demo-code pre { margin: 0; overflow: auto; color: #e4e6df; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; line-height: 1.55; white-space: pre; }
+.demo-result { min-width: 0; padding: 4px 0; }
+.demo-status { display: block; color: var(--accent); font: 600 13px/1.4 var(--sans); }
+.demo-result h3 { margin: 10px 0 8px; color: #f1f1ef; font: 600 17px/1.35 var(--sans); }
+.demo-result p { margin: 0; color: #c5c7c0; font: 14px/1.5 var(--sans); }
+.demo-result .demo-meta { margin-top: 14px; color: #b8bbb4; }
+.hero-bottom {
+  grid-area: foot; display: grid; grid-template-columns: 1.15fr .85fr; gap: 26px;
+  align-items: start; padding: 20px 0 0; color: #c5c7c0; font: 15px/1.55 var(--serif);
+}
+.hero-bottom p { margin: 0; max-width: 72ch; }
+.hero-bottom-callout { color: #f1f1ef; font-family: var(--sans); }.mobile-index { display: none; }
+.content { width: 100%; max-width: 1080px; margin: 0 auto; padding: 34px 0 110px; }
+.section { margin: 0 0 clamp(82px, 9vw, 128px); scroll-margin-top: 94px; }
+.section-kicker { display: none; }
+.section h2 {
+  max-width: 25ch; margin: 0 0 18px; color: var(--ink);
+  font: 700 clamp(2rem, 3.35vw, 3.05rem)/1.05 var(--sans);
+  letter-spacing: -.03em; text-wrap: balance;
+}
+.section h2 em { color: inherit; font-style: normal; }
+.lede { max-width: 76ch; margin: 0 0 28px; color: var(--muted); font: 400 19px/1.58 var(--serif); }
+.section p { max-width: 76ch; }
+.section h3, .panel h3, .project h3, .contract-copy h3, .gate h3, .risk h3, .arm h3, .road-step h3 {
+  margin: 0 0 8px; color: var(--ink); font: 600 21px/1.3 var(--sans);
+  letter-spacing: -.015em; text-wrap: balance;
+}
+#thesis { margin-top: 22px; padding: clamp(28px, 4vw, 54px); background: var(--concrete); color: var(--concrete-ink); }
+#thesis h2, #thesis h3, #thesis strong { color: var(--concrete-ink); }
+#thesis .lede, #thesis .thesis-card p { color: #393a36; }
+#thesis .thesis-card blockquote { color: var(--concrete-ink); }
+.thesis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 4vw, 56px); }
+.thesis-card { padding: 0; background: transparent; }
+.thesis-card.primary { min-height: 0; display: block; background: transparent; }
+.card-label { margin: 0 0 12px; color: #393a36; font: 600 14px/1.4 var(--sans); }
+.thesis-card blockquote { margin: 0 0 14px; font: 600 clamp(24px, 2.8vw, 34px)/1.24 var(--serif); letter-spacing: -.02em; }
+.thesis-card p { margin: 0; color: #393a36; font: 400 16px/1.55 var(--serif); }
+.thesis-card .index, .principle .idx { display: none; }
+.principle { display: block; padding: 13px 0; }
+.principle:first-of-type { margin-top: 0; }
+.principle strong { display: block; color: var(--concrete-ink); font: 600 17px/1.35 var(--sans); }
+.principle p { margin: 5px 0 0; color: #393a36; font: 400 16px/1.5 var(--serif); }
+.warning-strip { display: grid; gap: 8px; margin-top: 26px; padding: 18px 20px; background: #33342f; color: #f1f1ef; }
+.warning-strip .symbol { display: none; }
+.warning-strip strong { display: block; font: 600 16px/1.4 var(--sans); }
+.warning-strip p { margin: 5px 0 0; color: #c5c7c0; font: 400 15px/1.5 var(--serif); }
+.timeline { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; margin: 34px 0 26px; }
+.timeline:before, .step-dot { display: none; }
+.step { padding: 0; }
+.step strong { display: block; margin-bottom: 8px; color: var(--ink); font: 600 17px/1.35 var(--sans); }
+.step p { max-width: 34ch; margin: 0; color: var(--muted); font: 400 15px/1.5 var(--serif); }
+.late-failure { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; padding: 20px 22px; background: var(--surface); color: var(--ink); }
+.late-failure p { margin: 5px 0 0; color: var(--muted); font: 400 15px/1.5 var(--serif); }
+.late-failure .cost { color: var(--ink); font: 600 14px/1.4 var(--sans); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 40px; }
+.panel { padding: 0; background: transparent; }
+.panel h3 { font-size: 19px; }
+.panel p, .project p, .contract-copy p, .risk p { margin: 0; color: var(--muted); font: 400 16px/1.55 var(--serif); }
+.chips { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.chip { padding: 0; border: 0; background: none; color: var(--muted); font: 14px/1.45 var(--sans); }
+.chip.blue, .chip.lime, .chip.coral { background: none; border: 0; color: var(--ink); }
+.quote-band { display: grid; gap: 12px; margin: 30px 0; padding: 26px 30px; background: #272727; color: var(--ink); }
+.quote-band .q { display: none; }
+.quote-band p { margin: 0; color: var(--ink); font: 600 clamp(22px, 2.5vw, 29px)/1.28 var(--serif); letter-spacing: -.015em; }
+.quote-band small { display: block; margin-top: 12px; color: var(--muted); font: 14px/1.45 var(--sans); }
+.landscape { display: block; }
+.project {
+  display: grid; grid-template-columns: minmax(190px, .7fr) minmax(0, 1.3fr);
+  gap: 8px 30px; min-height: 0; padding: 20px 12px;
+  background: transparent; transition: background-color .18s ease;
+}
+.project:hover { background: rgba(255,255,255,.035); }
+.project-top { display: block; }
+.project h3 { margin: 0 0 6px; font-size: 19px; }
+.project .repo { color: var(--accent); font: 14px/1.4 var(--sans); text-decoration-thickness: 1px; }
+.project p { grid-column: 2; margin: 0; }
+.project .decision { grid-column: 2; margin-top: 4px; padding: 0; border: 0; display: block; color: var(--muted); font: 14px/1.45 var(--sans); }
+.verdict { display: inline; padding: 0; background: none; color: var(--ink); font: 600 14px/1.4 var(--sans); }
+.verdict.borrow, .verdict.optional, .verdict.test { background: none; color: var(--ink); }
+.filterbar { display: flex; flex-wrap: wrap; gap: 18px; margin: 0 0 20px; }
+.filterbar button {
+  min-height: 44px; padding: 8px 0; border: 0; border-radius: 0; background: transparent;
+  color: var(--muted); font: 14px/1.35 var(--sans); text-decoration: underline;
+  text-decoration-color: transparent; text-underline-offset: 6px;
+}
+.filterbar button:hover, .filterbar button[aria-pressed="true"] { color: var(--ink); text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+.project[hidden] { display: none; }.arch-wrap[data-ui] { padding: clamp(18px, 3vw, 32px); overflow: hidden; background: #252525; color: #f1f1ef; border-radius: 2px; }
+.arch-heading { display: flex; justify-content: space-between; gap: 22px; align-items: start; margin-bottom: 24px; }
+.arch-heading h3 { margin: 0; color: #f1f1ef; font-size: 23px; }
+.arch-heading p { max-width: 42ch; margin: 4px 0 0; color: #c5c7c0; font: 400 15px/1.5 var(--serif); }
+.arch-label { color: #c5c7c0; font: 13px/1.4 var(--sans); }
+.diagram { display: block; width: 100%; height: auto; }
+.diagram .outline { fill: none; stroke: #656660; stroke-width: 1.3; }
+.diagram text { font-family: var(--sans); }
+.diagram .boxtext { font: 600 13px var(--sans); fill: #f1f1ef; }
+.diagram .subtext { font: 400 11.5px var(--sans); fill: #c5c7c0; }
+.diagram .tiny { font: 600 10.5px var(--sans); fill: #b8c7b4; letter-spacing: .04em; }
+.diagram .bluebox { fill: #343631; stroke: #777a71; }
+.diagram .limebox { fill: #9caf98; stroke: #9caf98; }
+.diagram .whitebox { fill: #deddd6; stroke: #deddd6; }
+.diagram .darktext { fill: #20211e; font: 400 11.5px var(--sans); }
+.diagram .darktiny { font: 700 10.5px var(--sans); fill: #363933; letter-spacing: .04em; }
+.diagram .darktitle { font: 700 13px var(--sans); fill: #1c1e19; }
+.diagram .darksub { font: 500 11.5px var(--sans); fill: #2c2f28; }
+.diagram .path { fill: none; stroke: #969992; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.diagram .flow { fill: none; stroke: #9caf98; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 7 8; }
+.diagram .dashed { stroke-dasharray: 4 5; }
+.arch-caption { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 0; color: #c5c7c0; font: 14px/1.45 var(--sans); }
+.arch-caption strong { color: #f1f1ef; }
+.contract-layout { display: grid; grid-template-columns: .82fr 1.18fr; gap: 42px; align-items: start; }
+.contract-copy { padding: 0; background: transparent; }
+.contract-copy h3 { margin-bottom: 12px; font-size: 22px; }
+.contract-fields { list-style: none; padding: 0; margin: 18px 0 0; }
+.contract-fields li { display: grid; grid-template-columns: minmax(110px, .7fr) 1.3fr; gap: 14px; padding: 11px 0; }
+.contract-fields b { color: var(--ink); font: 600 14px/1.4 var(--sans); }
+.contract-fields span { color: var(--muted); font: 14px/1.45 var(--sans); }
+.codebox[data-ui] { min-width: 0; overflow: hidden; background: #252525; color: #e4e6df; border: 1px solid #484943; border-radius: 2px; }
+.codebox[data-ui] .code-head { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 12px 16px; background: #2d2d2b; color: #c5c7c0; border-bottom: 1px solid #484943; font: 13px/1.4 var(--sans); }
+.dots { display: none; }
+.codebox pre { margin: 0; padding: 18px; overflow: auto; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; line-height: 1.7; white-space: pre; }
+.codebox .key { color: #c9d2c4; }
+.codebox .string { color: #d9dfd3; }
+.codebox .comment { color: #b8bbb4; }
+.code-note { padding: 0 18px 16px; color: #b8bbb4; font: 13px/1.45 var(--sans); }
+.contract-warning { margin-top: 18px; padding: 14px 16px; background: #30312d; color: #e4e6df; font: 15px/1.5 var(--serif); }
+.inline-code { padding: 1px 4px; background: var(--surface); color: var(--ink); font-family: "Cascadia Code", Consolas, monospace; font-size: .9em; line-height: 1.4; }
+.sequence { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 24px 0; }
+.seq-node { padding: 0; border: 0; background: transparent; color: var(--muted); font: 15px/1.45 var(--sans); }
+.seq-node.active { color: var(--accent); background: transparent; }
+.seq-arrow { color: var(--muted); font-size: 16px; }
+.gate-grid[data-ui] { padding: 0 20px; background: #252525; color: #f1f1ef; border-radius: 2px; }
+.gate-grid { display: grid; grid-template-columns: 1fr; }
+.gate { display: grid; grid-template-columns: minmax(150px, .6fr) 1.4fr minmax(180px, .7fr); align-items: start; gap: 22px; padding: 22px 0; }
+.gate-grid[data-ui] .gate + .gate { border-top: 1px solid #484943; }
+.gate .n { display: none; }
+.gate h3 { margin: 0; color: #f1f1ef; font-size: 18px; }
+.gate p { margin: 0; color: #c5c7c0; font: 400 15px/1.5 var(--serif); }
+.gate .out { color: #b8bbb4; font: 13px/1.45 var(--sans); }
+.gate-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+.gate-strip .gate { display: block; padding: 0; }
+.gate-strip .gate-grid[data-ui] .gate + .gate { border: 0; }
+.two-col > .panel { min-width: 0; }
+.gate-strip .gate h3 { margin-bottom: 8px; }
+.poc-board[data-ui] { padding: clamp(18px, 3vw, 28px); background: #252525; color: #f1f1ef; }
+.poc-head { display: grid; grid-template-columns: 1.2fr .8fr; gap: 30px; padding: 0 0 22px; }
+.poc-head h3 { color: #f1f1ef; }
+.poc-head p { margin: 0; color: #c5c7c0; font: 15px/1.5 var(--serif); }
+.arms[data-ui] { display: grid; grid-template-columns: 1fr; }
+.arm { display: grid; grid-template-columns: minmax(190px, .65fr) 1.35fr; gap: 24px; padding: 17px 0; color: #f1f1ef; }
+.arms[data-ui] .arm + .arm { border-top: 1px solid #484943; }
+.arm.recommended { padding-left: 16px; border-left: 2px solid var(--accent); background: transparent; }
+.arm h3 { margin: 0; color: #f1f1ef; font-size: 17px; }
+.arm p { margin: 0; color: #c5c7c0; font: 15px/1.5 var(--serif); }
+.smallnote { margin: 12px 0 0; color: var(--muted); font: 14px/1.5 var(--serif); }
+.metric-table[data-ui], .metric-table { width: 100%; border-collapse: collapse; color: var(--ink); font: 15px/1.45 var(--sans); }
+.metric-table th, .metric-table td { padding: 12px 14px; border: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.metric-table th { background: transparent; color: var(--muted); font: 500 13px/1.35 var(--sans); }
+.metric-table td { color: var(--ink); }
+.metric-table td:first-child { font-weight: 600; }.risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 40px; }
+.risk { padding: 0; background: transparent; }
+.risk .tag { display: block; margin-bottom: 8px; color: var(--muted); font: 14px/1.4 var(--sans); }
+.risk h3 { margin: 0 0 8px; font-size: 18px; }
+.risk p { margin: 0; }
+.go, .no-go { padding: 22px; background: var(--surface); }
+.go h3, .no-go h3 { margin: 0 0 8px; color: var(--ink); font: 600 19px/1.35 var(--sans); }
+.go p, .no-go p { margin: 0; color: var(--muted); font: 16px/1.5 var(--serif); }
+.callout { margin-top: 24px; padding: 18px 20px; background: var(--surface); color: var(--ink); font: 16px/1.5 var(--serif); }
+.callout strong { color: var(--ink); font-family: var(--sans); }
+.roadmap { display: grid; grid-template-columns: 1fr; gap: 0; margin: 24px 0 30px; padding: 0; list-style: none; }
+.road-step { display: grid; grid-template-columns: minmax(210px, .7fr) 1.3fr; column-gap: 32px; row-gap: 6px; padding: 20px 0; }
+.road-step .when { grid-row: span 2; color: var(--muted); font: 14px/1.45 var(--sans); }
+.road-step h3 { margin: 0; font-size: 18px; }
+.road-step p { grid-column: 2; margin: 0; color: var(--muted); font: 400 15px/1.5 var(--serif); }
+.target { background: transparent; }
+.source-list { display: grid; grid-template-columns: 1fr; gap: 0; }
+.source { display: grid; grid-template-columns: minmax(170px, .65fr) 1.35fr; gap: 20px; padding: 17px 0; background: transparent; }
+.source .sn { display: none; }
+.source .kind { display: block; margin-bottom: 4px; color: var(--muted); font: 14px/1.4 var(--sans); }
+.source a { color: var(--ink); font: 600 17px/1.4 var(--sans); }
+.source p { margin: 6px 0 0; color: var(--muted); font: 15px/1.5 var(--serif); }
+.foot { display: flex; justify-content: space-between; gap: 22px; margin-top: 42px; padding: 0; color: var(--muted); font: 14px/1.5 var(--sans); }
+.foot strong { color: var(--ink); }
+.source-date { white-space: nowrap; }
+@keyframes headline-rise { from { transform: translateY(110%); } to { transform: translateY(0); } }
+@keyframes flow-dash { to { stroke-dashoffset: -30; } }
+.motion-ready .hero-line > span { animation: headline-rise .72s cubic-bezier(.2,.75,.25,1) both; }
+.motion-ready .hero-line:nth-child(2) > span { animation-delay: .1s; }
+.motion-ready .diagram .flow { animation: flow-dash 3s linear infinite; }
+.motion-ready .section > * { opacity: 0; transform: translateY(14px); transition: opacity .42s ease, transform .42s ease; transition-delay: var(--enter-delay, 0ms); }
+.motion-ready .section.is-visible > * { opacity: 1; transform: none; }
+@media (max-width: 1120px) {
+  .shell { grid-template-columns: 190px minmax(0,1fr); gap: 24px; }
+  .hero { min-height: 0; padding: 38px 30px; column-gap: 30px; }
+  .hero h1 { font-size: clamp(2.25rem, 4.3vw, 3.25rem); }
+  .demo-body { grid-template-columns: 1fr; }
+  .demo-result { padding: 0; }
+  .content { padding-top: 30px; }
+}
+@media (max-width: 980px) {
+  .shell { display: block; padding: 0 18px; }
+  .side { display: none; }
+  .hero { margin: 0 0 18px; }
+  .mobile-index { display: block; margin: 0 0 22px; }
+  .mobile-index details { padding: 0; }
+  .mobile-index summary { min-height: 44px; display: flex; align-items: center; color: var(--ink); font: 500 15px/1.4 var(--sans); cursor: pointer; }
+  .mobile-index nav { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; padding: 8px 0 10px; }
+  .mobile-index a { padding: 7px 0; color: var(--muted); font: 14px/1.4 var(--sans); text-decoration: none; }
+  .content { max-width: none; padding: 18px 0 76px; }
+  .thesis-grid, .contract-layout { grid-template-columns: 1fr; }
+  .timeline { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 680px) {
+  .topbar { min-height: 56px; gap: 10px; }
+  .brand { max-width: 45vw; font-size: 13px; }
+  .top-actions { gap: 10px; }
+  .source-date { display: none; }
+  .pill-btn { min-height: 44px; font-size: 13px; }
+  .shell { padding: 0 14px; }
+  .hero { min-height: 0; padding: 18px; grid-template-columns: 1fr; grid-template-areas: "demo" "copy" "foot"; gap: 24px; }
+  .hero-demo[data-ui] { padding: 14px; }
+  .demo-body { grid-template-columns: 1fr; gap: 12px; }
+  .demo-code pre { font-size: 12px; }
+  .hero-copy { padding: 4px 2px 0; }
+  .hero h1 { max-width: 100%; margin-bottom: 16px; font-size: clamp(2.25rem, 9.2vw, 3.2rem); }
+  .hero-deck { margin-bottom: 18px; font-size: 17px; }
+  .hero-bottom { grid-template-columns: 1fr; gap: 10px; padding-top: 0; font-size: 14px; }
+  .hero-action { min-height: 46px; }
+  .section { margin-bottom: 72px; }
+  .section h2 { max-width: 100%; font-size: clamp(1.8rem, 7.6vw, 2.15rem); }
+  .lede { font-size: 17px; }
+  #thesis { padding: 25px 20px; }
+  .thesis-grid { gap: 22px; }
+  .thesis-card blockquote { font-size: 25px; }
+  .timeline { grid-template-columns: 1fr; gap: 22px; }
+  .late-failure { grid-template-columns: 1fr; }
+  .two-col, .risk-grid, .gate-strip, .poc-head { grid-template-columns: 1fr; }
+  .project { grid-template-columns: 1fr; gap: 8px; padding: 18px 4px; }
+  .project p, .project .decision { grid-column: 1; }
+  .arch-heading { display: block; }
+  .arch-heading p { margin-top: 8px; }
+  .arch-caption { display: block; }
+  .arch-caption span { display: block; margin-top: 6px; }
+  .gate-grid[data-ui] { padding: 0 14px; }
+  .gate { grid-template-columns: 1fr; gap: 8px; padding: 18px 0; }
+  .arms[data-ui], .arm { display: block; }
+  .arm { padding: 16px 0; }
+  .arms[data-ui] .arm + .arm { border-top: 1px solid #484943; }
+  .arm h3 { margin-bottom: 7px; }
+  .road-step { grid-template-columns: 1fr; gap: 6px; padding: 17px 0; }
+  .road-step .when { grid-row: auto; }
+  .road-step p { grid-column: 1; }
+  .source { grid-template-columns: 1fr; gap: 2px; padding: 15px 0; }
+  .source .kind { margin-bottom: 2px; }
+  .foot { display: block; }
+  .foot span { display: block; margin-top: 8px; }
+  .metric-table[data-ui] { display: block; overflow-x: auto; }
+  .metric-table th, .metric-table td { min-width: 125px; padding: 10px; font-size: 13px; }
+}
+@media (max-width: 360px) { .hero h1 { font-size: 29px; } .section h2 { font-size: 26px; } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *:before, *:after { animation: none !important; transition-duration: .01ms !important; transform: none !important; }
+}
+@media print {
+  :root { color-scheme: light; --ground: #fff; --ink: #111; --muted: #444; }
+  body { background: #fff; color: #111; font-size: 11pt; }
+  .topbar, .side, .mobile-index, .progress, .top-actions, .hero-action, .demo-tabs, .filterbar { display: none !important; }
+  .shell { display: block; max-width: none; padding: 0; }
+  .hero { min-height: 0; margin: 0 0 14mm; padding: 16mm; background: #1c1c1c !important; color: #f1f1ef !important; break-after: page; print-color-adjust: exact; }
+  .hero-demo, .arch-wrap, .codebox, .gate-grid, .poc-board { break-inside: avoid; print-color-adjust: exact; }
+  .content { max-width: none; padding: 0 8mm; }
+  .section { margin-bottom: 12mm; break-inside: auto; }
+  .section h2 { font-size: 25pt; }
+  .project, .source, .road-step, .arm, .risk { break-inside: avoid; }
+  .project[hidden] { display: grid !important; }
+  .foot { margin-top: 14mm; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Agent systems / Engineering brief</div>
+  <div class="top-actions">
+    <span class="source-date">On-Device Model Onboarding · Oct 26, 2026</span>
+    <button class="pill-btn" id="themeToggle" type="button" aria-label="Switch to light mode">Light mode</button>
+    <button class="pill-btn" id="printBtn" type="button">Print / PDF</button>
+  </div>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+</header>
+<div class="shell">
+<aside class="side">
+  <p class="side-label">Report Sections</p>
+  <nav id="sideNav">
+    <a href="#thesis">Core Thesis</a>
+    <a href="#failure">Failure Analysis</a>
+    <a href="#landscape">Open Source Landscape</a>
+    <a href="#architecture">Recommended Architecture</a>
+    <a href="#contract">Capability Contracts</a>
+    <a href="#preflight">Recipe Preflight</a>
+    <a href="#poc">PoC Experiment</a>
+    <a href="#decision">Success Criteria & Falsification</a>
+    <a href="#roadmap">Roadmap</a>
+    <a href="#sources">Sources & Boundaries</a>
+  </nav>
+  <div class="side-note"><strong>Core Thesis</strong><br>Establish versioned, verifiable, searchable contracts for critical internal capabilities, then empirically test whether they improve first-pass Recipe generation success rates.</div>
+</aside>
+<main>
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <h1 id="hero-title"><span class="hero-line"><span>Agents can call tools,</span></span><span class="hero-line"><span>but will they use capabilities correctly?</span></span></h1>
+    <p class="hero-deck">For on-device model onboarding: making internal Python capabilities discoverable, verifiable, and reusable.</p>
+    <a class="hero-action" href="#architecture">View Proposed Architecture <span aria-hidden="true">↓</span></a>
+  </div>
+  <div class="hero-demo" data-ui aria-labelledby="demo-title">
+    <div class="demo-top">
+      <div>
+        <h2 id="demo-title">Recipe preflight</h2>
+        <p>Simulation demo · Not actual execution results</p>
+      </div>
+      <p>Before run(config)</p>
+    </div>
+    <div class="demo-tabs" role="group" aria-label="Select preflight stage">
+      <button type="button" class="demo-tab" data-stage="structure" aria-pressed="true">Structure</button>
+      <button type="button" class="demo-tab" data-stage="semantic" aria-pressed="false">Semantics</button>
+      <button type="button" class="demo-tab" data-stage="environment" aria-pressed="false">Environment</button>
+    </div>
+    <div class="demo-body">
+      <div class="demo-code">
+        <p class="demo-code-label">Validation result · Example JSON</p>
+        <pre><code id="demoCode">{
+  "stage": "structure",
+  "result": "pass",
+  "checks": ["required", "type", "enum"]
+}</code></pre>
+      </div>
+      <div class="demo-result" id="demoResult" aria-live="polite">
+        <span class="demo-status" id="demoStatus">PASS</span>
+        <h3 id="demoHeading">Fields and Types Complete</h3>
+        <p id="demoMessage">Sample Recipe passes structural and basic type validation.</p>
+        <p class="demo-meta" id="demoMeta">Required fields · Types · Enums</p>
+      </div>
+    </div>
+  </div>
+  <div class="hero-bottom">
+    <p>Core problem: The agent produces an apparently reasonable JSON recipe, but parameters, platform support, and preconditions remain hidden in Python implementation details—only failing after GPU execution begins.</p>
+    <p class="hero-bottom-callout">Shift verifiable constraints left before execution; stop forcing the model to guess rules through longer prompts.</p>
+  </div>
+</section>
+<div class="mobile-index">
+  <details>
+    <summary>Open section navigation</summary>
+    <nav>
+      <a href="#thesis">Core Thesis</a><a href="#failure">Failure Analysis</a>
+      <a href="#landscape">Open Source Landscape</a><a href="#architecture">Recommended Architecture</a>
+      <a href="#contract">Capability Contracts</a><a href="#preflight">Recipe Preflight</a>
+      <a href="#poc">PoC Experiment</a><a href="#decision">Success Criteria & Falsification</a>
+      <a href="#roadmap">Roadmap</a><a href="#sources">Sources & Boundaries</a>
+    </nav>
+  </details>
+</div>
+<div class="content">
+<section class="section" id="thesis">
+<h2>The missing piece isn't context—<br>it's machine-readable capability contracts.</h2>
+  <p class="lede">When critical constraints remain buried in Python implementation details, an agent seeing a tool name or skimming fragmented docstrings does not mean it knows how to use it correctly. The recommended direction: retain Skills + MCP within a tightly controlled closed loop, adding a lightweight contract layer and pre-run validation for critical internal capabilities.</p>
+  <div class="thesis-grid">
+    <article class="thesis-card primary"><div class="card-label">Design principle</div><blockquote>Shift capabilities from "the model guesses how to use them" to "the system can explain and verify how to use them."</blockquote><p>Let the model understand intent and propose composition plans; let code and tests define and enforce verifiable constraints.</p></article>
+    <article class="thesis-card"><div class="card-label">Three hypotheses to test</div><div class="principle"><div><strong>Retrieval aids discovery</strong><p>Repository maps and API indexes reduce errors where existing implementations are overlooked.</p></div></div><div class="principle"><div><strong>Contracts govern usage</strong><p>Versions, preconditions, support matrices, and examples reduce "found it, but used it wrong" mistakes.</p></div></div><div class="principle"><div><strong>Preflight catches early errors</strong><p>Deterministic validation intercepts errors before triggering expensive run(config) invocations.</p></div></div></article>
+  </div>
+  <div class="warning-strip"><div class="symbol">↳</div><div><strong>Do not mistake inference for fact</strong><p>The premise that "capability contracts improve first-pass generation success rates" is an engineering hypothesis to be verified, not an established conclusion. The latter part of this report specifies controlled experiments and falsification criteria.</p></div></div>
+</section>
+<section class="section" id="failure">
+<h2>Stop errors before reaching the GPU.</h2>
+  <p class="lede">Suppose an agent needs to synthesize a quantization recipe. Usable functions already exist in the internal library, but valid parameters, target platforms, and required preconditions are mostly implicit in code. The agent generates a seemingly plausible configuration; without adequate pre-validation, execution runs for minutes or hours before crashing.</p>
+  <ol class="timeline" aria-label="Process flow leading to delayed post-run failures">
+    <li class="step"><div><strong>Task Input</strong><p>Model, target SoC, precision, and operational objectives</p></div></li>
+    <li class="step"><div><strong>Domain Expert Input</strong><p>Analytical conclusions and suggestions, not full executable configs</p></div></li>
+    <li class="step bad"><div><strong>Agent Assembles Parameters</strong><p>Fields, combinations, and defaults assembled by guesswork</p></div></li>
+    <li class="step bad"><div><strong>Expensive Execution Starts</strong><p>Insufficient early gating; defects bypass checks</p></div></li>
+    <li class="step bad"><div><strong>Post-Run Failure</strong><p>Wastes GPU compute and engineer debugging time</p></div></li>
+  </ol>
+  <div class="late-failure"><div><strong>The issue isn't just "a hallucinated answer."</strong><p>The system lacks a mechanism to translate implicit constraints into machine-checkable rules prior to execution; a model judging its own JSON as "reasonable" is not a validator.</p></div><div class="cost">Delayed failure · Unnecessary GPU waste</div></div>
+  <div class="two-col">
+    <article class="panel"><h3>Adding More Context</h3><p>Improves capability discovery by providing repo maps, relevant source slices, and call sites. However, raw source code often still lacks explicit compatibility ranges, mutual exclusivity rules, and prerequisite chains, while adding retrieval noise.</p><div class="chips"><span class="chip blue">Aids discovery</span><span class="chip">No validity guarantee</span></div></article>
+    <article class="panel"><h3>Adding Capability Contracts + Preflight</h3><p>Explicitly encodes known rules and uses deterministic validation to intercept invalid configurations. It cannot invent unknown rules from thin air; it requires code evidence, regression tests, and domain engineers to curate collaboratively.</p><div class="chips"><span class="chip lime">Enforces constraints</span><span class="chip lime">Pre-execution gating</span></div></article>
+  </div>
+  <div class="quote-band"><div class="q">“</div><div><p>What matters is not how clever the recipe looks, but whether it passes verifiable constraints on its first pass and enters a controlled, predictable execution.</p><small>Working hypothesis · Internal research premise, not an industry benchmark</small></div></div>
+</section>
+<section class="section" id="landscape">
+<h2>Keep every tool in<br>its zone of competence.</h2>
+  <p class="lede">These open-source projects provide building blocks at different layers, not an out-of-the-box system that solves internal library comprehension and recipe synthesis. The recommended approach is to combine established tooling while curating lightweight domain contracts internally.</p>
+  <div class="filterbar" aria-label="Filter projects by adoption strategy"><button type="button" data-filter="all" aria-pressed="true">All</button><button type="button" data-filter="adopt" aria-pressed="false">Adopt First</button><button type="button" data-filter="borrow" aria-pressed="false">Borrow Patterns</button><button type="button" data-filter="optional" aria-pressed="false">Defer</button></div>
+  <div class="landscape" id="projectGrid">
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>Aider · Repo Map</h3><a class="repo" href="https://aider.chat/docs/repomap.html" target="_blank" rel="noreferrer">aider.chat ↗</a></div><span class="verdict borrow">Borrow Pattern</span></div><p>Compresses key classes, functions, signatures, and dependencies into a code map, ranking context by task relevance. Solves "the agent doesn't know where capabilities live."</p><div class="decision"><strong>Use for</strong><span>Reference design for internal repo indexing and relevant code retrieval; no need to replace the Harness just for Repo Map.</span></div></article>
+    <article class="project" data-kind="adopt"><div class="project-top"><div><h3>Griffe</h3><a class="repo" href="https://mkdocstrings.github.io/griffe/introduction/" target="_blank" rel="noreferrer">mkdocstrings.github.io ↗</a></div><span class="verdict">Try Out First</span></div><p>Extracts modules, functions, classes, parameters, and docstrings from Python source or runtime objects, serializing them to JSON and tracking API drift.</p><div class="decision"><strong>Use for</strong><span>Generating API skeletons and signature manifests locally; do not expect it to automatically discover domain semantics.</span></div></article>
+    <article class="project" data-kind="adopt"><div class="project-top"><div><h3>JSON Schema / Pydantic</h3><a class="repo" href="https://json-schema.org/learn/getting-started-step-by-step" target="_blank" rel="noreferrer">json-schema.org ↗</a></div><span class="verdict">Adopt First</span></div><p>Provides deterministic validation for JSON structure, field types, required items, and enums. On the Python side, Pydantic organizes models and validation logic cleanly.</p><div class="decision"><strong>Use for</strong><span>Hard gate for recipe structural validation; cross-field business logic must still be implemented explicitly.</span></div></article>
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>Repomix</h3><a class="repo" href="https://repomix.com/guide/mcp-server" target="_blank" rel="noreferrer">repomix.com ↗</a></div><span class="verdict borrow">Rapid PoC</span></div><p>Packages codebases into context tailored for LLM analysis, including an experimental MCP mode. Processes code locally, but outbound data routing depends on subsequent model calls.</p><div class="decision"><strong>Use for</strong><span>One-time local repository analysis; filter sensitive files, audit outputs, and route only to approved internal models.</span></div></article>
+    <article class="project" data-kind="adopt"><div class="project-top"><div><h3>Promptfoo</h3><a class="repo" href="https://www.promptfoo.dev/docs/guides/evaluate-coding-agents/" target="_blank" rel="noreferrer">promptfoo.dev ↗</a></div><span class="verdict">Evaluate First</span></div><p>Establishes reproducible evaluation testbenches for models or agents, verifying structure, behavior, token cost, latency, and multi-run variance via local CLI and internal model endpoints.</p><div class="decision"><strong>Use for</strong><span>Empirically benchmarking Baseline vs. Repo Map vs. Contract vs. Combined approaches rather than relying on demo impressions.</span></div></article>
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>MCP</h3><a class="repo" href="https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/server/tools.mdx" target="_blank" rel="noreferrer">Protocol Spec ↗</a></div><span class="verdict borrow">Continue Using</span></div><p>Standardizes tool discovery and invocation with primitives like Resources and Prompts. Can transport contract queries, but the protocol itself defines none of your library's domain semantics.</p><div class="decision"><strong>Use for</strong><span>Optional transport and integration boundary; in-process components can be invoked directly as Python functions first.</span></div></article>
+    <article class="project" data-kind="optional"><div class="project-top"><div><h3>LangGraph</h3><a class="repo" href="https://github.com/langchain-ai/langgraph" target="_blank" rel="noreferrer">GitHub ↗</a></div><span class="verdict optional">Defer for Later</span></div><p>Built for stateful, long-running, resumable agentic workflows requiring human-in-the-loop. Does not discover internal APIs or generate quantization rules on its own.</p><div class="decision"><strong>Use for</strong><span>Evaluate only if current Harness infrastructure fails to satisfy persistence, checkpointing, or recovery needs.</span></div></article>
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>Agent Skills Standard</h3><a class="repo" href="https://agentskills.io/" target="_blank" rel="noreferrer">agentskills.io ↗</a></div><span class="verdict borrow">Continue Using</span></div><p>Encapsulates specialized knowledge, workflows, scripts, and references into reusable skills. On 2026-10-22, Anthropic announced its donation to the Agentic AI Foundation.</p><div class="decision"><strong>Use for</strong><span>Retaining domain workflows for expert skills; the contract layer complements skills with machine-checkable facts without replacing them.</span></div></article>
+  </div>
+  <p class="smallnote">Tool positioning is drawn from respective public documentation. Designations (Adopt / Borrow / Defer) reflect architectural judgment for our specific context, not official endorsements by project maintainers.</p>
+</section>
+<section class="section" id="architecture">
+<h2>Models handle reasoning;<br>contracts enforce constraints.</h2>
+  <p class="lede">We recommend leaving DeepSeek Harness intact without requiring other teams to rewrite their skills. Introduce a lightweight Library Intelligence layer: automatically extract verifiable facts from source code, then express implicit business constraints via versioned metadata.</p>
+  <div class="arch-wrap" data-ui>
+    <div class="arch-heading"><div><div class="arch-label">Target state / first iteration</div><h3>From Internal Source Code to Trusted Execution</h3></div><p>Left: Reference inputs. Center: Combining discovery with capability contracts. Right: Deterministic validation and execution. Domain rules stay within a versioned adapter layer.</p></div>
+    <svg class="diagram" viewBox="0 0 940 610" role="img" aria-labelledby="archTitle archDesc">
+      <title id="archTitle">Capability Contract Architecture for On-Device Model Onboarding</title><desc id="archDesc">Findings and evidence from Expert Skills feed into the Orchestrator. The Orchestrator queries local API indexes and capability contracts to synthesize Recipe JSON. After structural validation, semantic rules, and dry-run preflight pass, it invokes Python run(config). Results from execution, edge KPI evaluation, and human sign-off flow back into the Recipe Register.</desc>
+      <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#a9b5ac"/></marker><marker id="limeArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#d8f36a"/></marker></defs>
+      <rect x="12" y="20" width="198" height="100" rx="12" class="outline"/><text x="30" y="47" class="tiny">INPUTS</text><text x="30" y="72" class="boxtext">Expert Skills</text><text x="30" y="94" class="subtext">Findings / Advice / Evidence</text>
+      <rect x="12" y="145" width="198" height="100" rx="12" class="outline"/><text x="30" y="173" class="tiny">LOCAL REPOSITORIES</text><text x="30" y="198" class="boxtext">Python Source & Tests</text><text x="30" y="220" class="subtext">Internal network only</text>
+      <rect x="12" y="270" width="198" height="100" rx="12" class="outline"/><text x="30" y="298" class="tiny">AUTOMATED EXTRACTION</text><text x="30" y="323" class="boxtext">API Index / Repo Map</text><text x="30" y="345" class="subtext">Symbols / Signatures / Calls</text>
+      <rect x="12" y="395" width="198" height="100" rx="12" class="outline"/><text x="30" y="423" class="tiny">CURATED KNOWLEDGE</text><text x="30" y="448" class="boxtext">Capability Contracts</text><text x="30" y="470" class="subtext">Scope / Prereqs / Negative Ex</text>
+      <rect x="270" y="75" width="205" height="94" rx="13" class="bluebox"/><text x="290" y="103" class="tiny">REASONING</text><text x="290" y="129" class="boxtext">Orchestrator</text><text x="290" y="149" class="subtext">Select / Compose / Synthesize</text>
+      <rect x="270" y="215" width="205" height="95" rx="13" class="outline"/><text x="290" y="244" class="tiny">DISCOVERY</text><text x="290" y="270" class="boxtext">Contract Lookup</text><text x="290" y="291" class="subtext">get capabilities / examples</text>
+      <rect x="270" y="356" width="205" height="95" rx="13" class="limebox"/><text x="290" y="382" class="darktiny">RECIPE GENERATION</text><text x="290" y="406" class="darktitle">JSON + Provenance</text><text x="290" y="428" class="darksub">Contract Ver / Provenance</text>
+      <rect x="540" y="75" width="174" height="105" rx="13" class="whitebox"/><text x="559" y="102" class="darktiny">GATE 01</text><text x="559" y="127" class="darktitle">Schema</text><text x="559" y="149" class="darksub">Types / Required / Enums</text>
+      <rect x="540" y="213" width="174" height="105" rx="13" class="whitebox"/><text x="559" y="240" class="darktiny">GATE 02</text><text x="559" y="265" class="darktitle">Semantic Rules</text><text x="559" y="287" class="darksub">Compatibility / Prereqs</text>
+      <rect x="540" y="351" width="174" height="105" rx="13" class="whitebox"/><text x="559" y="378" class="darktiny">GATE 03</text><text x="559" y="403" class="darktitle">Dry-run / Preflight</text><text x="559" y="425" class="darksub">Deps / Paths / Environment</text>
+      <rect x="770" y="111" width="158" height="120" rx="13" class="limebox"/><text x="789" y="139" class="darktiny">EXECUTION</text><text x="789" y="163" class="darktitle">run(config)</text><text x="789" y="185" class="darksub">Generates model.bin</text><text x="789" y="205" class="darksub">Post-preflight only</text>
+      <rect x="770" y="273" width="158" height="112" rx="13" class="outline"/><text x="789" y="302" class="tiny">VALIDATE</text><text x="789" y="329" class="boxtext">Device KPI / PPL</text><text x="789" y="351" class="subtext">local / device farm</text><text x="789" y="369" class="subtext">Evaluation & Logs</text>
+      <rect x="770" y="427" width="158" height="100" rx="13" class="outline"/><text x="789" y="455" class="tiny">HUMAN GATE</text><text x="789" y="480" class="boxtext">Review / Register</text><text x="789" y="502" class="subtext">Reusable after approval</text>
+      <path d="M210 70 H250 V110 H270" class="path" marker-end="url(#arr)"/><path d="M210 195 H240 V260 H270" class="path" marker-end="url(#arr)"/><path d="M210 320 H240 V260 H270" class="path" marker-end="url(#arr)"/><path d="M210 445 H240 V270 H270" class="path" marker-end="url(#arr)"/><path d="M370 169 V215" class="path" marker-end="url(#arr)"/><path d="M370 310 V356" class="flow" marker-end="url(#limeArr)"/><path d="M475 403 H506 V127 H540" class="flow" marker-end="url(#limeArr)"/><path d="M627 180 V213" class="path" marker-end="url(#arr)"/><path d="M627 318 V351" class="path" marker-end="url(#arr)"/><path d="M714 404 H743 V172 H770" class="flow" marker-end="url(#limeArr)"/><path d="M849 231 V273" class="path" marker-end="url(#arr)"/><path d="M849 385 V427" class="path" marker-end="url(#arr)"/><path d="M849 527 V550 H105 V495" class="path dashed" marker-end="url(#arr)"/><text x="412" y="544" class="subtext">Registry stores evidence, artifact hashes, evaluation and approval</text>
+      <text x="13" y="568" class="tiny">AUTOMATED FACTS</text><text x="13" y="587" class="subtext">signatures / schemas / tests / source refs</text><text x="310" y="568" class="tiny">CURATED RULES</text><text x="310" y="587" class="subtext">business constraints / applicability / known exceptions</text><text x="640" y="568" class="tiny">HARD BOUNDARY</text><text x="640" y="587" class="subtext">invalid config never reaches expensive run</text>
+    </svg>
+    <div class="arch-caption"><span><strong>Auto-extract</strong> source, signature, types, tests, version</span><span><strong>Curate locally</strong> semantics that code analysis cannot infer reliably</span><span><strong>Fail closed</strong> any critical uncertainty blocks run</span></div>
+  </div>
+  <div class="callout"><strong>Important boundary:</strong> The contract layer does not need to become a separate microservice. For a PoC, it can simply be a local Python package with versioned YAML/JSON metadata and a CLI validator; only expose query interfaces via MCP when cross-process or cross-team sharing is required.</div>
+</section>
+<section class="section" id="contract">
+<h2>Express "how to use"<br>as machine-actionable contracts.</h2>
+  <p class="lede">Static analysis tools tell you that a function exists, its signature, and where it is defined. However, which SoCs or runtimes support it, which fields are mutually exclusive, and under what conditions execution is prohibited still require team curation. Capability contracts unify both layers and bind them strictly to library revisions.</p>
+  <div class="contract-layout">
+    <article class="contract-copy"><div class="card-label">Proposed contract</div><h3>A contract should answer 6 core questions</h3><p>Below is an illustrative metadata design—not the actual API of your underlying libraries, nor an implication that these constraints are already implemented.</p><ul class="contract-fields"><li><b>identity</b><span>Capability ID, contract version, repo commit SHA, owner</span></li><li><b>implementation</b><span>Underlying module/symbol, parameter signatures, exact source location</span></li><li><b>applicability</b><span>Supported model families, target SoCs, runtimes, and precision modes</span></li><li><b>preconditions</b><span>Required upstream steps, prerequisite files/datasets, mutual exclusions</span></li><li><b>examples</b><span>Verified minimal examples, known failure cases, and counterexamples</span></li><li><b>validation</b><span>Schema, semantic business rules, dry-run hooks, test references</span></li></ul></article>
+    <div class="codebox" data-ui><div class="code-head"><span>capability-contract.yaml</span><span>Sample fields · Maps to actual implementation</span></div><pre><code><span class="key">id</span>: <span class="string">quantization.prepare</span>
+<span class="key">contract_version</span>: <span class="string">0.1.0</span>
+<span class="key">implementation</span>:
+  <span class="key">repo</span>: <span class="string">internal-quantization-lib</span>
+  <span class="key">commit</span>: <span class="string">&lt;git-sha&gt;</span>
+  <span class="key">symbol</span>: <span class="string">&lt;module.function&gt;</span>
+  <span class="key">source_ref</span>: <span class="string">&lt;file:line&gt;</span>
+<span class="key">applicability</span>:
+  <span class="key">model_families</span>: [<span class="string">&lt;approved-family&gt;</span>]
+  <span class="key">targets</span>: [<span class="string">&lt;validated-target&gt;</span>]
+<span class="key">preconditions</span>:
+  - <span class="string">&lt;required-prior-step&gt;</span>
+<span class="key">constraints</span>:
+  - <span class="key">rule_id</span>: <span class="string">R-001</span>
+    <span class="key">severity</span>: <span class="string">error</span>
+    <span class="key">when</span>: <span class="string">&lt;predicate over config&gt;</span>
+    <span class="key">message</span>: <span class="string">&lt;actionable explanation&gt;</span>
+<span class="key">examples</span>:
+  <span class="key">valid</span>: <span class="string">&lt;approved-example-id&gt;</span>
+  <span class="key">invalid</span>: <span class="string">&lt;known-bad-example-id&gt;</span>
+<span class="key">validation</span>:
+  <span class="key">schema</span>: <span class="string">&lt;schema-ref&gt;</span>
+  <span class="key">preflight</span>: <span class="string">&lt;local-command-or-callable&gt;</span>
+<span class="key">status</span>: <span class="string">draft | verified | deprecated</span></code></pre><div class="code-note">Illustrative metadata only. The contract should point to real source / tests and must be pinned to the library revision used for each run.</div></div>
+  </div>
+  <div class="two-col">
+    <article class="panel"><h3>What machines can extract automatically</h3><p>Package and module hierarchies, public functions, signatures and types, docstrings, certain default values, test references, and Git revision deltas. Griffe serves as a solid extraction foundation; Aider Repo Map provides the design pattern for relevance-ranked code maps.</p><div class="chips"><span class="chip blue">Automated</span><span class="chip">Rebuilt per release</span></div></article>
+    <article class="panel"><h3>Business facts requiring explicit curation</h3><p>SoC and model compatibility matrices, parameter interaction rules, risk levels, mandatory prerequisites, and verified positive/negative examples. Domain engineers can maintain these in their own adapter/metadata repository without blocking on upstream library teams.</p><div class="chips"><span class="chip lime">Human-curated</span><span class="chip">Evidence-backed</span></div></article>
+  </div>
+</section>
+<section class="section" id="preflight">
+<h2>Validate the recipe<br>before powering on GPUs.</h2>
+  <p class="lede">Never let the same agent act as both author and sole validator. Recipes are synthesized by the Orchestrator; the preflight validator is a deterministic tool that returns structured, machine-locatable diagnostics. The Orchestrator can perform bounded self-corrections before re-submitting for preflight.</p>
+  <div class="sequence" aria-label="Recipe generation preflight workflow"><div class="seq-node">Expert Findings + Task Specs</div><span class="seq-arrow">→</span><div class="seq-node">Query Contracts / Examples</div><span class="seq-arrow">→</span><div class="seq-node active">Synthesize Full JSON</div><span class="seq-arrow">→</span><div class="seq-node">Preflight</div><span class="seq-arrow">→</span><div class="seq-node active">run(config)</div></div>
+  <div class="gate-grid" data-ui>
+    <article class="gate"><h3>Structural Validation</h3><p>JSON parsing, required fields, type conformity, enums, numerical ranges, and key spelling. Enforced deterministically via JSON Schema or Pydantic.</p><span class="out">Output: Field-level errors</span></article>
+    <article class="gate"><h3>Semantic Validation</h3><p>Cross-field constraints, platform support matrices, mandatory prerequisite steps, and mutually exclusive combinations. Must cite validated rules or test references.</p><span class="out">Output: Rule ID and explanation</span></article>
+    <article class="gate"><h3>Environment / Dry-Run</h3><p>Dependency revisions, filesystem paths, file existence, permissions, and target device/toolchain availability. If the library lacks dry-run mode, run a safe thin probe rather than pretending checks succeeded.</p><span class="out">Output: Blocked, warning, or executable</span></article>
+  </div>
+  <div class="two-col">
+    <article class="panel"><h3>Diagnostics must be structured</h3><p>Return <code class="inline-code">rule_id</code>, JSON Pointers, severity, observed value, expected condition, evidence source, and actionable guidance. Structured feedback enables reliable agent self-correction far better than ambiguous natural-language tracebacks.</p></article>
+    <article class="panel"><h3>Bound the correction loop</h3><p>Allow a strictly bounded number of attempts (e.g. maximum 2 retries), logging the initial draft, diffs per round, preflight outputs, and final config. When facing unknown rules, contradictory advice, or high-risk parameters, escalate to human engineers instead of looping endlessly.</p></article>
+  </div>
+  <div class="warning-strip"><div class="symbol">!</div><div><strong>Fail closed on critical unknowns</strong><p>If a configuration involves unverified high-risk parameter combinations, unknown platform support, or unconfirmed prerequisites, execution must be blocked or routed to human approval. Low-risk warnings can proceed; critical constraints must never rely on model guesswork.</p></div></div>
+</section>
+<section class="section" id="poc">
+<h2>Run small experiments<br>before scaling up.</h2>
+  <p class="lede">Start with a single internal Python repository, a handful of high-frequency quantization/adaptation capabilities, and historical recipes. Generate and validate JSON recipes offline first without running full GPU or device pipelines. Execute only a representative subset to verify correlation between preflight passes and actual runner success.</p>
+  <div class="poc-board" data-ui>
+    <div class="poc-head"><div><h3>Experimental Arms</h3><p>Same model, same evaluation tasks, same token budget; vary only capability context and contract mechanisms.</p></div><div><h3>Recommended Scale</h3><p>Select 20–30 representative historical tasks; 2 runs per task per arm. This serves as a pragmatic PoC baseline, not a formal claim of statistical significance.</p></div></div>
+    <div class="arms" data-ui>
+      <article class="arm"><div class="letter">Baseline</div><h4>Current Skills + MCP</h4><p>Uses existing workflows and standard prompting to establish the baseline first-pass success rate.</p></article>
+      <article class="arm"><div class="letter">Local retrieval</div><h4>+ Local Repo Map / API Index</h4><p>Measures how much discovery ("letting the agent locate existing code") improves results on its own.</p></article>
+      <article class="arm"><div class="letter">Contract + preflight</div><h4>+ Capability Contracts & Preflight</h4><p>Measures the isolated impact of explicit constraints and deterministic pre-run gating.</p></article>
+      <article class="arm recommended"><div class="letter">Combined approach</div><h4>Retrieval + Contracts + Preflight</h4><p>Tests the complete closed loop to determine whether combining discovery and contracts outperforms either in isolation.</p></article>
+    </div>
+  </div>
+  <table class="metric-table" data-ui><thead><tr><th>Metric</th><th>Operational Definition</th><th>Why It Matters</th></tr></thead><tbody>
+    <tr><td>First-pass Generation Success Rate <span class="target">Primary</span></td><td>The initial JSON passes structural and semantic preflight without human editing or agent self-correction.</td><td>Directly measures zero-shot recipe synthesis quality; failure modes must be categorized to avoid masking defects.</td></tr>
+    <tr><td>First-pass Execution Success Rate</td><td>On the designated execution subset, the initial recipe passes early runner checks and completes execution successfully.</td><td>Ensures the validator does not overfit to its own rules while failing on real execution.</td></tr>
+    <tr><td>Invalid Parameter / Field Rate</td><td>Frequency of unknown fields, hallucinated parameters, type mismatches, and invalid option pairs.</td><td>Validates whether capability contracts curb agent parameter hallucination and improper composition.</td></tr>
+    <tr><td>Correction Rounds & Latency</td><td>Correction attempts, API calls, tokens consumed, and wall-clock time from draft to pass; execution runtime tracked separately.</td><td>Prevents masking poor synthesis quality behind expensive recursive retry loops.</td></tr>
+    <tr><td>Contract Maintenance Overhead</td><td>Engineering hours spent authoring, updating, and testing contracts and regression samples.</td><td>Determines the trade-off between automated extraction and manual curation burden.</td></tr>
+    <tr><td>Critical False Negatives</td><td>Number of human-annotated critical defects erroneously approved by the preflight validator.</td><td>Safety gate. Must target zero in the PoC; any occurrence requires root-cause categorization and rule patching.</td></tr>
+  </tbody></table>
+  <p class="smallnote">Controlled variables: Fix model checkpoint, prompt versions, sampling temperature, available tools, and call budget; randomize task ordering; conduct blind reviews of final recipes. Distinguish preflight rejections from runtime execution failures to avoid mistaking "no traceback" for acceptable model output.</p>
+</section>
+<section class="section" id="decision">
+<h2>Define success criteria<br>before scaling adoption.</h2>
+  <p class="lede">Treat capability contracts as a strong PoC candidate without assuming guaranteed victory. The thresholds below represent tentative decision gates established before data collection, not immutable industry standards.</p>
+  <div class="gate-strip"><article class="go"><strong>Tentative Go Criteria</strong><p>Combined Arm D achieves at least a 15 percentage-point improvement in first-pass success over Baseline; zero critical false negatives; gains are not driven by runaway retry iterations; contract authoring overhead remains within acceptable team limits.</p></article><article class="no-go"><strong>Tentative No-Go Criteria</strong><p>If Arm D demonstrates no consistent advantage over B or C, or if improvements remain purely superficial (valid JSON syntax without semantic or execution gains), pause architectural expansion; isolate error sources rather than piling on more skills or search pipelines.</p></article></div>
+  <div class="risk-grid">
+    <article class="risk"><span class="tag">Counter-hypothesis A</span><h3>Failures stem from missing requirements, not library ignorance</h3><p>If the intake request omits target runtimes, hardware, or KPI thresholds, no contract can deduce missing facts. Requires intake clarification and requirement completeness gates.</p></article>
+    <article class="risk"><span class="tag">Counter-hypothesis B</span><h3>Contracts become incomplete or stale</h3><p>If critical constraints hide inside edge-case branches outside test coverage, contracts may foster false confidence. Must bind contracts to commit hashes, source refs, and tests, re-verifying upon upstream changes.</p></article>
+    <article class="risk"><span class="tag">Counter-hypothesis C</span><h3>Model reasoning and multi-step planning are the real bottleneck</h3><p>If capabilities are discovered and contracts are unambiguous, yet the model fails to map expert findings into the right pipeline, optimize orchestration prompts, planning policies, or use deterministic templating.</p></article>
+    <article class="risk"><span class="tag">Counter-hypothesis D</span><h3>Maintenance cost exceeds engineering return</h3><p>If contracts only benefit low-frequency APIs, avoid repo-wide coverage. Focus exclusively on high-frequency, high-failure-cost, constraint-heavy capability hubs.</p></article>
+  </div>
+  <div class="callout"><strong>A useful decision rule:</strong> Contracts do not replace model reasoning; they compress what the model must guess. If a constraint can be verified deterministically in code, never force the LLM to speculate about it.</div>
+</section>
+<section class="section" id="roadmap">
+<h2>Start with a single failure case.</h2>
+  <p class="lede">Keep the PoC minimal: one internal repository, one quantization/adaptation scenario, one contract set, one evaluation task suite, and one preflight entry point. Prove measurable value before expanding across broader skills, platforms, and devices.</p>
+  <ol class="roadmap">
+    <li class="road-step"><div class="when">Days 1–2 / Baseline</div><h3>Select Tasks & Collect Failure Samples</h3><p>Curate 20–30 tasks from historical recipe records; gather accepted configs, execution logs, and known failure cases. Annotate critical constraints and ground-truth criteria; freeze baseline pipeline versions.</p></li>
+    <li class="road-step"><div class="when">Days 3–5 / Index & Contracts</div><h3>Griffe + Repo Map Principles + Curated Metadata</h3><p>Scan target repos locally to generate API indexes and code references; curate compatibility matrices, prerequisites, positive/negative examples, and commit pinning for high-risk stages.</p></li>
+    <li class="road-step"><div class="when">Days 6–8 / Integration</div><h3>Expose Query & Validation Interfaces</h3><p>Implement local Python APIs or CLI tools exposing capability lookup, contract retrieval, example queries, and validate_recipe. Wrap as MCP tools only when multi-process or client isolation demands it.</p></li>
+    <li class="road-step"><div class="when">Days 9–10 / Benchmark</div><h3>Execute Arms A / B / C / D</h3><p>Record first-pass outputs, validation diagnostics, retry loops, token costs, and runtime execution results. Audit critical false negatives and publish an evidence-backed Go / No-Go decision.</p></li>
+    <li class="road-step"><div class="when">Post-PoC / Scale</div><h3>Scale Proven Patterns Only</h3><p>Standardize contract templates and version checkers for capability classes with verified ROI, expanding to other internal libraries. The Recipe Register persists contract versions, execution traces, artifact digests, edge KPIs, and sign-offs.</p></li>
+  </ol>
+  <div class="two-col">
+    <article class="panel"><h3>Explicit Non-Goals</h3><p>Do not rewrite DeepSeek Harness; do not mandate other teams modify their skills; do not upload internal source to public clouds; do not start with full-repo knowledge graphs or multi-agent swarms; do not require full device-farm execution in round one.</p></article>
+    <article class="panel"><h3>Minimal Deliverables</h3><p>1. Repo API index; 2. Versioned capability contracts; 3. Local Recipe preflight CLI/API; 4. Orchestrator query integration; 5. 20–30 historical regression benchmarks; 6. A/B/C/D benchmark data with Go/No-Go report.</p></article>
+  </div>
+</section>
+<section class="section" id="sources">
+<h2>References & Operational Boundaries.</h2>
+  <p class="lede">The references below represent primary documentation and specifications reviewed for this research. Tool capabilities reflect public documentation; proposed architectural integrations and PoC decision thresholds are internal recommendations awaiting empirical validation.</p>
+  <div class="source-list">
+    <article class="source"><div><div class="kind">Code context</div><a href="https://aider.chat/docs/repomap.html" target="_blank" rel="noreferrer">Aider · Repository map ↗</a><p>Official documentation on symbol maps, call signatures, dependency graphs, and relevance-weighted context compression.</p></div></article>
+    <article class="source"><div><div class="kind">Python API extraction</div><a href="https://mkdocstrings.github.io/griffe/introduction/" target="_blank" rel="noreferrer">Griffe · Introduction ↗</a><p>Extracting API representations from Python source or runtime objects, serializing to JSON, and tracking breaking changes across releases.</p></div></article>
+    <article class="source"><div><div class="kind">Repository context</div><a href="https://repomix.com/guide/mcp-server" target="_blank" rel="noreferrer">Repomix · MCP server ↗</a><p>Techniques for packaging local repositories for LLM context; documentation notes MCP server mode is experimental.</p></div></article>
+    <article class="source"><div><div class="kind">Privacy / security</div><a href="https://repomix.com/guide/security" target="_blank" rel="noreferrer">Repomix · Security ↗</a><p>Local output boundaries, secret scanning, and risk considerations when processing untrusted repository configurations.</p></div></article>
+    <article class="source"><div><div class="kind">Validation</div><a href="https://json-schema.org/learn/getting-started-step-by-step" target="_blank" rel="noreferrer">JSON Schema · Getting started ↗</a><p>Foundational mechanisms for deterministically validating JSON data against formal schemas.</p></div></article>
+    <article class="source"><div><div class="kind">Tool protocol</div><a href="https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/server/tools.mdx" target="_blank" rel="noreferrer">MCP · Tools specification ↗</a><p>Tool schemas, discovery, and invocation protocols; the specification deliberately does not define domain-specific quantization rules.</p></div></article>
+    <article class="source"><div><div class="kind">Agent evaluation</div><a href="https://www.promptfoo.dev/docs/guides/evaluate-coding-agents/" target="_blank" rel="noreferrer">Promptfoo · Evaluate coding agents ↗</a><p>Rigorous agent evaluation tracking intermediate steps, multi-run variance, token costs, latency, and structured assertions.</p></div></article>
+    <article class="source"><div><div class="kind">Agent workflow</div><a href="https://github.com/langchain-ai/langgraph/blob/main/README.md" target="_blank" rel="noreferrer">LangGraph · README ↗</a><p>Long-running, durable execution with human-in-the-loop support; relevant only if existing Harness frameworks present gaps.</p></div></article>
+    <article class="source"><div><div class="kind">Skills standard</div><a href="https://www.anthropic.com/news/donating-agent-skills-to-the-agentic-ai-foundation" target="_blank" rel="noreferrer">Anthropic · Agent Skills donation, 22 Oct 2026 ↗</a><p>Announcement of donating the Agent Skills standard to the Agentic AI Foundation; referenced here for open standardization trends, not as a replacement for capability contracts.</p></div></article>
+  </div>
+  <div class="contract-warning"><strong>Internal Security Perimeter:</strong> All source inspection, API indexing, contracts, evaluation benchmarks, and logs must strictly reside within company-approved internal environments. Open-source utilities should be self-hosted or run locally; connect exclusively to enterprise-approved internal model endpoints. Never assume local CLI execution guarantees zero outbound data leakage—audit the full network data path.</div>
+  <div class="foot"><div><strong>AGENTIC PLATFORM / FIELDNOTES</strong><br>On-Device Model Onboarding · Capability Contracts</div><span>Research Snapshot: Oct 26, 2026<br>Proposed architectures and thresholds subject to internal empirical validation</span></div>
+</section>
+</div>
+</main>
+</div>
+<script>
+(function(){
+  const body = document.body;
+  const themeBtn = document.getElementById('themeToggle');
+  themeBtn.addEventListener('click', () => {
+    const light = body.classList.toggle('light');
+    themeBtn.textContent = light ? 'Dark mode' : 'Light mode';
+    themeBtn.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+  });
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  const progress = document.getElementById('progress');
+  const updateProgress = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.width = (max > 0 ? window.scrollY / max * 100 : 0) + '%';
+  };
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  const stageContent = {
+    structure: {
+      status: 'PASS',
+      heading: 'Fields and Types Complete',
+      message: 'Sample Recipe passes structural and basic type validation.',
+      meta: 'Required fields · Types · Enums',
+      data: { stage: 'structure', result: 'pass', checks: ['required', 'type', 'enum'] }
+    },
+    semantic: {
+      status: 'BLOCK',
+      heading: 'Support Matrix Excludes Combination',
+      message: 'Sample rule: Target SoC and runtime combination unverified; preflight blocks invocation.',
+      meta: 'Rule R-001 · Runner not started',
+      data: { stage: 'semantic', result: 'blocked', rule_id: 'R-001', reason: 'target/runtime pair not verified' }
+    },
+    environment: {
+      status: 'SKIP',
+      heading: 'Execution Environment Bypassed',
+      message: 'Upstream semantic validation failed; skipping device, path, and dependency checks.',
+      meta: 'runner_started: false',
+      data: { stage: 'environment', result: 'skipped', reason: 'upstream validation blocked', runner_started: false }
+    }
+  };
+  const demoTabs = [...document.querySelectorAll('.demo-tab')];
+  const demoCode = document.getElementById('demoCode');
+  const demoStatus = document.getElementById('demoStatus');
+  const demoHeading = document.getElementById('demoHeading');
+  const demoMessage = document.getElementById('demoMessage');
+  const demoMeta = document.getElementById('demoMeta');
+  demoTabs.forEach(tab => tab.addEventListener('click', () => {
+    const value = stageContent[tab.dataset.stage];
+    demoTabs.forEach(item => item.setAttribute('aria-pressed', String(item === tab)));
+    demoStatus.textContent = value.status;
+    demoHeading.textContent = value.heading;
+    demoMessage.textContent = value.message;
+    demoMeta.textContent = value.meta;
+    demoCode.textContent = JSON.stringify(value.data, null, 2);
+  }));
+
+  const filterButtons = [...document.querySelectorAll('.filterbar button')];
+  const projects = [...document.querySelectorAll('.project')];
+  filterButtons.forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.filter;
+    filterButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+    projects.forEach(project => { project.hidden = !(filter === 'all' || project.dataset.kind === filter); });
+  }));
+
+  const links = [...document.querySelectorAll('#sideNav a')];
+  const sections = links.map(link => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id));
+      }
+    }), { rootMargin: '-20% 0px -65% 0px' });
+    sections.forEach(section => observer.observe(section));
+
+    const motionObserver = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        motionObserver.unobserve(entry.target);
+      }
+    }), { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.section').forEach(section => {
+      [...section.children].forEach((child, index) => child.style.setProperty('--enter-delay', String(index * 70) + 'ms'));
+      motionObserver.observe(section);
+    });
+    body.classList.add('motion-ready');
+  }
+})();
+</script>
+</body>
+</html>

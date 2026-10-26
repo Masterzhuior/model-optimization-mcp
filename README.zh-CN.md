@@ -17,6 +17,12 @@
   ·
   <a href="docs/agentic-model-onboarding-platform-research.html">端侧 Onboarding 平台研究</a>
   ·
+  <a href="docs/edge-ai-technology-research.md">端侧 AI 前沿技术调研 (2026)</a>
+  ·
+  <a href="docs/agentic-capability-contracts-research.html">能力契约研究</a>
+  ·
+  <a href="docs/agentic-recipe-engineering-zh-editorial.html">Recipe 工程化特稿</a>
+  ·
   <a href="docs/architecture.md">架构</a>
   ·
   <a href="docs/tool-reference.md">工具清单</a>
@@ -202,6 +208,11 @@ docs/
   enterprise-blueprint.md
   agentic-model-onboarding-platform-research.html       中文研究报告
   agentic-model-onboarding-platform-research.en.html    英文研究报告
+  agentic-capability-contracts-research.html            能力契约中文报告
+  agentic-capability-contracts-research.en.html         能力契约英文报告
+  agentic-recipe-engineering-zh-editorial.html          Recipe 工程化中文特稿
+  agentic-recipe-engineering-en-editorial.html          Recipe 工程化英文特稿
+  edge-ai-technology-research.md                        2026 端侧 AI 与 Agentic 前沿调研
   infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md
   architecture.md

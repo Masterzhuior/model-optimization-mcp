@@ -11,7 +11,50 @@ This document translates the current platform-aware design into a production inf
 - device-farm KPI validation;
 - recipe feedback and revision loops.
 
-The key recommendation is: do not run this as one monolithic MCP server attached to a single GPU host. Treat MCP as the agent-facing protocol and build a real control plane behind it.
+The key recommendation is compatibility, not heaviness. For a 30-50 person team, do not start with many microservices. Start with one modular control-plane service, a small queue, object storage, and a few worker processes. Keep the boundaries clean so the same design can later expand into Kubernetes, Slurm, or a larger device-farm setup.
+
+## 0. Right-Sized Recommendation For A 30-50 Person Team
+
+Use a "single control plane, multiple workers" architecture.
+
+Recommended first production shape:
+
+```text
+1 control-plane VM or small Kubernetes deployment:
+  - agent-facing MCP server
+  - recipe/platform/artifact/job APIs in one process
+  - Postgres
+  - Redis or lightweight queue
+  - MinIO or S3-compatible object storage
+
+2-10 GPU servers:
+  - worker process or worker MCP
+  - Docker runner
+  - shared model/cache mount or object-storage cache
+
+1 device lab:
+  - ADB controller or AWS Device Farm adapter
+  - device reservation and KPI collection worker
+```
+
+Avoid at this stage:
+
+- splitting every service into a separate microservice;
+- Kafka unless you already operate it;
+- multi-region scheduling;
+- complex service mesh;
+- per-vendor standalone control planes;
+- a separate admin MCP server unless platform operators really need it.
+
+Preserve these upgrade paths:
+
+- JSON store -> Postgres;
+- in-process job threads -> Redis queue workers;
+- local files -> object storage;
+- single control-plane process -> separate scheduler/artifact/KPI services;
+- Docker workers -> Kubernetes Jobs, Slurm, or Ray.
+
+The design should feel lightweight to operate but still disciplined enough that local agents cannot bypass recipes, leases, approvals, or artifact lineage.
 
 ## 1. Target Shape
 
@@ -73,13 +116,13 @@ flowchart TB
     Workers --> Vault
 ```
 
-## 2. MCP Server Should Not Be One Server
+## 2. MCP Server Surfaces
 
-Use three MCP surfaces.
+Use separate MCP surfaces as logical boundaries. For a 30-50 person team, these can live in one Python service at first. The important part is tool exposure and authorization, not process count.
 
 ### 2.1 Agent-Facing MCP Server
 
-This is the only MCP endpoint exposed to engineer laptops.
+This is the only MCP surface exposed to engineer laptops.
 
 Responsibilities:
 
@@ -117,9 +160,9 @@ generate_kpi_report
 create_recipe_revision_from_feedback
 ```
 
-### 2.2 Internal Worker MCP Servers
+### 2.2 Internal Worker MCP Surface
 
-These are not exposed to local agents. They run inside the trusted network and are called by the control-plane scheduler.
+This is not exposed to local agents. It can be implemented as worker processes, worker MCP servers, or queue consumers. The scheduler is the only caller.
 
 Worker MCP categories:
 
@@ -145,9 +188,9 @@ profiler.collect_trace
 profiler.summarize_trace
 ```
 
-### 2.3 Admin MCP Server
+### 2.3 Admin MCP Surface
 
-Optional, but useful for platform operators.
+Optional. For 30-50 people, start with admin CLI commands or a small internal admin UI. Add a dedicated admin MCP surface only when platform operations become frequent.
 
 Responsibilities:
 
@@ -579,4 +622,3 @@ Recipes should behave like signed experiment contracts.
 Artifacts, KPI reports, traces, and failure analyses should behave like evidence.
 
 This separation will make the platform robust even when engineers use different local agents.
-

@@ -17,6 +17,12 @@
   ·
   <a href="docs/agentic-model-onboarding-platform-research.en.html">Onboarding Platform Research</a>
   ·
+  <a href="docs/edge-ai-technology-research.md">Edge AI Tech Research (2026)</a>
+  ·
+  <a href="docs/agentic-capability-contracts-research.en.html">Capability Contracts Research</a>
+  ·
+  <a href="docs/agentic-recipe-engineering-en-editorial.html">Recipe Engineering</a>
+  ·
   <a href="docs/architecture.md">Architecture</a>
   ·
   <a href="docs/tool-reference.md">Tool Reference</a>
@@ -203,6 +209,11 @@ docs/
   enterprise-blueprint.md
   agentic-model-onboarding-platform-research.html       Chinese research report
   agentic-model-onboarding-platform-research.en.html    English research report
+  agentic-capability-contracts-research.html            Chinese capability contracts report
+  agentic-capability-contracts-research.en.html         English capability contracts report
+  agentic-recipe-engineering-zh-editorial.html          Chinese recipe engineering editorial
+  agentic-recipe-engineering-en-editorial.html          English recipe engineering editorial
+  edge-ai-technology-research.md                        2026 edge AI and agentic research
   infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md
   architecture.md

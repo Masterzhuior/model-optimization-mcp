@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="面向端侧模型 Onboarding 的 Agentic Platform 研究：机器可用的能力契约、内部 Python 仓库理解、Recipe 首次生成成功率与 PoC 设计。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+<title>端侧模型 Onboarding：从调用到正确使用</title>
+<style>
+:root {
+  color-scheme: dark;
+  --ground: #1c1c1c; --surface: #252525; --surface-raised: #2d2d2b;
+  --ink: #f1f1ef; --muted: #b8bbb4; --rule: #4b4c47;
+  --accent: #9caf98; --accent-ink: #1c1c1c;
+  --concrete: #c8c5ba; --concrete-ink: #20211e;
+  --sans: "Libre Franklin", "Segoe UI", "Microsoft YaHei", sans-serif;
+  --serif: "Source Serif 4", "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --page-margin: clamp(16px, 2.2vw, 32px);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 400 17px/1.58 var(--serif); text-rendering: optimizeLegibility; }
+body.light {
+  color-scheme: light; --ground: #c8c5ba; --surface: #d6d3ca; --surface-raised: #e4e1d8;
+  --ink: #20211e; --muted: #4f534e; --rule: #a3a198; --accent: #344c3d;
+  --accent-ink: #f1f1ef; --concrete: #262825; --concrete-ink: #f1f1ef;
+}
+a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+a:hover { color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+.topbar {
+  position: sticky; top: 0; z-index: 20; min-height: 60px; max-width: 1600px;
+  margin: 0 auto; padding: 8px var(--page-margin); display: flex; align-items: center;
+  justify-content: space-between; gap: 20px; background: var(--ground);
+}
+.brand { color: var(--ink); font: 600 14px/1.35 var(--sans); }
+.top-actions { display: flex; align-items: center; gap: 14px; }
+.source-date { color: var(--muted); font: 13px/1.4 var(--sans); }
+.pill-btn {
+  min-height: 44px; padding: 8px 4px; border: 0; border-radius: 0; background: transparent;
+  color: var(--ink); font: 14px/1.3 var(--sans); text-decoration: underline;
+  text-decoration-color: transparent; text-underline-offset: 5px;
+  transition: color .18s ease, text-decoration-color .18s ease;
+}
+.pill-btn:hover { color: var(--accent); text-decoration-color: currentColor; }
+.progress { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); width: 0; }
+.shell {
+  max-width: 1600px; margin: 0 auto; padding: 0 var(--page-margin); display: grid;
+  grid-template-columns: 208px minmax(0, 1fr); gap: clamp(24px, 3vw, 48px);
+}
+.side { position: sticky; top: 76px; align-self: start; height: calc(100vh - 88px); padding: 28px 0; overflow: auto; }
+.side-label { margin: 0 0 14px; color: var(--muted); font: 14px/1.4 var(--sans); }
+.side nav { display: grid; gap: 5px; }
+.side a { padding: 7px 0; color: var(--muted); font: 14px/1.45 var(--sans); text-decoration: none; transition: color .16s ease; }
+.side a:hover, .side a.active { color: var(--accent); }
+.side-note { margin-top: 28px; color: var(--muted); font: 15px/1.55 var(--serif); }
+.side-note strong { color: var(--ink); font-family: var(--sans); }
+main { min-width: 0; }
+.hero {
+  min-height: clamp(590px, calc(100svh - 76px), 760px); margin: 0 0 30px;
+  padding: clamp(28px, 3.8vw, 56px); display: grid;
+  grid-template-columns: 1.1fr .9fr; grid-template-areas: "copy demo" "foot foot";
+  align-items: center; column-gap: clamp(28px, 4vw, 60px); row-gap: 28px; overflow: hidden;
+  background: #1c1c1c; color: #f1f1ef;
+}
+body.light .hero { background: #252725; color: #f1f1ef; }
+.hero:before, .hero:after { display: none; }
+.hero-copy { grid-area: copy; max-width: 640px; }
+.hero h1 {
+  max-width: 100%; margin: 0 0 22px;
+  font: 700 clamp(2.35rem, 4vw, 3.5rem)/.98 var(--sans);
+  letter-spacing: -.035em; text-wrap: balance;
+}
+.hero-line { display: block; overflow: hidden; }
+.hero-line > span { display: block; }
+.hero-deck { max-width: 48ch; margin: 0 0 26px; color: #d1d2cc; font: 400 clamp(18px, 1.55vw, 21px)/1.48 var(--serif); }
+.hero-action {
+  min-height: 46px; display: inline-flex; align-items: center; gap: 12px; padding: 11px 17px;
+  background: var(--accent); color: var(--accent-ink); font: 600 14px/1.25 var(--sans);
+  text-decoration: none; transition: background .18s ease, color .18s ease, transform .18s ease;
+}
+.hero-action:hover { background: #c1d2bc; color: #1c1c1c; transform: translateY(-1px); }
+.hero-demo[data-ui] {
+  grid-area: demo; align-self: center; min-width: 0; padding: clamp(16px, 2vw, 24px);
+  background: #252525; color: #f1f1ef; border-radius: 2px;
+}
+.demo-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.demo-top h2 { margin: 0; font: 600 16px/1.35 var(--sans); }
+.demo-top p, .demo-note { margin: 4px 0 0; color: #b8bbb4; font: 13px/1.45 var(--sans); }
+.hero-demo[data-ui] .demo-tabs { display: flex; gap: 22px; margin-top: 18px; border-bottom: 1px solid #454641; }
+.demo-tab {
+  position: relative; min-height: 42px; padding: 8px 0; border: 0; background: transparent;
+  color: #b8bbb4; font: 14px/1.3 var(--sans);
+}
+.demo-tab:hover, .demo-tab[aria-pressed="true"] { color: #f1f1ef; }
+.hero-demo[data-ui] .demo-tab[aria-pressed="true"]:after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--accent);
+}
+.demo-body { display: grid; grid-template-columns: 1.1fr .9fr; gap: 16px; margin-top: 18px; }
+.demo-code { min-width: 0; padding: 12px; background: #20201f; }
+.demo-code-label { margin: 0 0 8px; color: #b8bbb4; font: 13px/1.35 var(--sans); }
+.demo-code pre { margin: 0; overflow: auto; color: #e4e6df; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; line-height: 1.55; white-space: pre; }
+.demo-result { min-width: 0; padding: 4px 0; }
+.demo-status { display: block; color: var(--accent); font: 600 13px/1.4 var(--sans); }
+.demo-result h3 { margin: 10px 0 8px; color: #f1f1ef; font: 600 17px/1.35 var(--sans); }
+.demo-result p { margin: 0; color: #c5c7c0; font: 14px/1.5 var(--sans); }
+.demo-result .demo-meta { margin-top: 14px; color: #b8bbb4; }
+.hero-bottom {
+  grid-area: foot; display: grid; grid-template-columns: 1.15fr .85fr; gap: 26px;
+  align-items: start; padding: 20px 0 0; color: #c5c7c0; font: 15px/1.55 var(--serif);
+}
+.hero-bottom p { margin: 0; max-width: 72ch; }
+.hero-bottom-callout { color: #f1f1ef; font-family: var(--sans); }.mobile-index { display: none; }
+.content { width: 100%; max-width: 1080px; margin: 0 auto; padding: 34px 0 110px; }
+.section { margin: 0 0 clamp(82px, 9vw, 128px); scroll-margin-top: 94px; }
+.section-kicker { display: none; }
+.section h2 {
+  max-width: 25ch; margin: 0 0 18px; color: var(--ink);
+  font: 700 clamp(2rem, 3.35vw, 3.05rem)/1.05 var(--sans);
+  letter-spacing: -.03em; text-wrap: balance;
+}
+.section h2 em { color: inherit; font-style: normal; }
+.lede { max-width: 76ch; margin: 0 0 28px; color: var(--muted); font: 400 19px/1.58 var(--serif); }
+.section p { max-width: 76ch; }
+.section h3, .panel h3, .project h3, .contract-copy h3, .gate h3, .risk h3, .arm h3, .road-step h3 {
+  margin: 0 0 8px; color: var(--ink); font: 600 21px/1.3 var(--sans);
+  letter-spacing: -.015em; text-wrap: balance;
+}
+#thesis { margin-top: 22px; padding: clamp(28px, 4vw, 54px); background: var(--concrete); color: var(--concrete-ink); }
+#thesis h2, #thesis h3, #thesis strong { color: var(--concrete-ink); }
+#thesis .lede, #thesis .thesis-card p { color: #393a36; }
+#thesis .thesis-card blockquote { color: var(--concrete-ink); }
+.thesis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 4vw, 56px); }
+.thesis-card { padding: 0; background: transparent; }
+.thesis-card.primary { min-height: 0; display: block; background: transparent; }
+.card-label { margin: 0 0 12px; color: #393a36; font: 600 14px/1.4 var(--sans); }
+.thesis-card blockquote { margin: 0 0 14px; font: 600 clamp(24px, 2.8vw, 34px)/1.24 var(--serif); letter-spacing: -.02em; }
+.thesis-card p { margin: 0; color: #393a36; font: 400 16px/1.55 var(--serif); }
+.thesis-card .index, .principle .idx { display: none; }
+.principle { display: block; padding: 13px 0; }
+.principle:first-of-type { margin-top: 0; }
+.principle strong { display: block; color: var(--concrete-ink); font: 600 17px/1.35 var(--sans); }
+.principle p { margin: 5px 0 0; color: #393a36; font: 400 16px/1.5 var(--serif); }
+.warning-strip { display: grid; gap: 8px; margin-top: 26px; padding: 18px 20px; background: #33342f; color: #f1f1ef; }
+.warning-strip .symbol { display: none; }
+.warning-strip strong { display: block; font: 600 16px/1.4 var(--sans); }
+.warning-strip p { margin: 5px 0 0; color: #c5c7c0; font: 400 15px/1.5 var(--serif); }
+.timeline { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; margin: 34px 0 26px; }
+.timeline:before, .step-dot { display: none; }
+.step { padding: 0; }
+.step strong { display: block; margin-bottom: 8px; color: var(--ink); font: 600 17px/1.35 var(--sans); }
+.step p { max-width: 34ch; margin: 0; color: var(--muted); font: 400 15px/1.5 var(--serif); }
+.late-failure { display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; padding: 20px 22px; background: var(--surface); color: var(--ink); }
+.late-failure p { margin: 5px 0 0; color: var(--muted); font: 400 15px/1.5 var(--serif); }
+.late-failure .cost { color: var(--ink); font: 600 14px/1.4 var(--sans); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 40px; }
+.panel { padding: 0; background: transparent; }
+.panel h3 { font-size: 19px; }
+.panel p, .project p, .contract-copy p, .risk p { margin: 0; color: var(--muted); font: 400 16px/1.55 var(--serif); }
+.chips { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.chip { padding: 0; border: 0; background: none; color: var(--muted); font: 14px/1.45 var(--sans); }
+.chip.blue, .chip.lime, .chip.coral { background: none; border: 0; color: var(--ink); }
+.quote-band { display: grid; gap: 12px; margin: 30px 0; padding: 26px 30px; background: #272727; color: var(--ink); }
+.quote-band .q { display: none; }
+.quote-band p { margin: 0; color: var(--ink); font: 600 clamp(22px, 2.5vw, 29px)/1.28 var(--serif); letter-spacing: -.015em; }
+.quote-band small { display: block; margin-top: 12px; color: var(--muted); font: 14px/1.45 var(--sans); }
+.landscape { display: block; }
+.project {
+  display: grid; grid-template-columns: minmax(190px, .7fr) minmax(0, 1.3fr);
+  gap: 8px 30px; min-height: 0; padding: 20px 12px;
+  background: transparent; transition: background-color .18s ease;
+}
+.project:hover { background: rgba(255,255,255,.035); }
+.project-top { display: block; }
+.project h3 { margin: 0 0 6px; font-size: 19px; }
+.project .repo { color: var(--accent); font: 14px/1.4 var(--sans); text-decoration-thickness: 1px; }
+.project p { grid-column: 2; margin: 0; }
+.project .decision { grid-column: 2; margin-top: 4px; padding: 0; border: 0; display: block; color: var(--muted); font: 14px/1.45 var(--sans); }
+.verdict { display: inline; padding: 0; background: none; color: var(--ink); font: 600 14px/1.4 var(--sans); }
+.verdict.borrow, .verdict.optional, .verdict.test { background: none; color: var(--ink); }
+.filterbar { display: flex; flex-wrap: wrap; gap: 18px; margin: 0 0 20px; }
+.filterbar button {
+  min-height: 44px; padding: 8px 0; border: 0; border-radius: 0; background: transparent;
+  color: var(--muted); font: 14px/1.35 var(--sans); text-decoration: underline;
+  text-decoration-color: transparent; text-underline-offset: 6px;
+}
+.filterbar button:hover, .filterbar button[aria-pressed="true"] { color: var(--ink); text-decoration-color: var(--accent); text-decoration-thickness: 2px; }
+.project[hidden] { display: none; }.arch-wrap[data-ui] { padding: clamp(18px, 3vw, 32px); overflow: hidden; background: #252525; color: #f1f1ef; border-radius: 2px; }
+.arch-heading { display: flex; justify-content: space-between; gap: 22px; align-items: start; margin-bottom: 24px; }
+.arch-heading h3 { margin: 0; color: #f1f1ef; font-size: 23px; }
+.arch-heading p { max-width: 42ch; margin: 4px 0 0; color: #c5c7c0; font: 400 15px/1.5 var(--serif); }
+.arch-label { color: #c5c7c0; font: 13px/1.4 var(--sans); }
+.diagram { display: block; width: 100%; height: auto; }
+.diagram .outline { fill: none; stroke: #656660; stroke-width: 1.3; }
+.diagram text { font-family: var(--sans); }
+.diagram .boxtext { font: 600 13px var(--sans); fill: #f1f1ef; }
+.diagram .subtext { font: 400 11.5px var(--sans); fill: #c5c7c0; }
+.diagram .tiny { font: 600 10.5px var(--sans); fill: #b8c7b4; letter-spacing: .04em; }
+.diagram .bluebox { fill: #343631; stroke: #777a71; }
+.diagram .limebox { fill: #9caf98; stroke: #9caf98; }
+.diagram .whitebox { fill: #deddd6; stroke: #deddd6; }
+.diagram .darktext { fill: #20211e; font: 400 11.5px var(--sans); }
+.diagram .darktiny { font: 700 10.5px var(--sans); fill: #363933; letter-spacing: .04em; }
+.diagram .darktitle { font: 700 13px var(--sans); fill: #1c1e19; }
+.diagram .darksub { font: 500 11.5px var(--sans); fill: #2c2f28; }
+.diagram .path { fill: none; stroke: #969992; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.diagram .flow { fill: none; stroke: #9caf98; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 7 8; }
+.diagram .dashed { stroke-dasharray: 4 5; }
+.arch-caption { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; padding: 0; color: #c5c7c0; font: 14px/1.45 var(--sans); }
+.arch-caption strong { color: #f1f1ef; }
+.contract-layout { display: grid; grid-template-columns: .82fr 1.18fr; gap: 42px; align-items: start; }
+.contract-copy { padding: 0; background: transparent; }
+.contract-copy h3 { margin-bottom: 12px; font-size: 22px; }
+.contract-fields { list-style: none; padding: 0; margin: 18px 0 0; }
+.contract-fields li { display: grid; grid-template-columns: minmax(110px, .7fr) 1.3fr; gap: 14px; padding: 11px 0; }
+.contract-fields b { color: var(--ink); font: 600 14px/1.4 var(--sans); }
+.contract-fields span { color: var(--muted); font: 14px/1.45 var(--sans); }
+.codebox[data-ui] { min-width: 0; overflow: hidden; background: #252525; color: #e4e6df; border: 1px solid #484943; border-radius: 2px; }
+.codebox[data-ui] .code-head { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 12px 16px; background: #2d2d2b; color: #c5c7c0; border-bottom: 1px solid #484943; font: 13px/1.4 var(--sans); }
+.dots { display: none; }
+.codebox pre { margin: 0; padding: 18px; overflow: auto; font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; line-height: 1.7; white-space: pre; }
+.codebox .key { color: #c9d2c4; }
+.codebox .string { color: #d9dfd3; }
+.codebox .comment { color: #b8bbb4; }
+.code-note { padding: 0 18px 16px; color: #b8bbb4; font: 13px/1.45 var(--sans); }
+.contract-warning { margin-top: 18px; padding: 14px 16px; background: #30312d; color: #e4e6df; font: 15px/1.5 var(--serif); }
+.inline-code { padding: 1px 4px; background: var(--surface); color: var(--ink); font-family: "Cascadia Code", Consolas, monospace; font-size: .9em; line-height: 1.4; }
+.sequence { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 24px 0; }
+.seq-node { padding: 0; border: 0; background: transparent; color: var(--muted); font: 15px/1.45 var(--sans); }
+.seq-node.active { color: var(--accent); background: transparent; }
+.seq-arrow { color: var(--muted); font-size: 16px; }
+.gate-grid[data-ui] { padding: 0 20px; background: #252525; color: #f1f1ef; border-radius: 2px; }
+.gate-grid { display: grid; grid-template-columns: 1fr; }
+.gate { display: grid; grid-template-columns: minmax(150px, .6fr) 1.4fr minmax(180px, .7fr); align-items: start; gap: 22px; padding: 22px 0; }
+.gate-grid[data-ui] .gate + .gate { border-top: 1px solid #484943; }
+.gate .n { display: none; }
+.gate h3 { margin: 0; color: #f1f1ef; font-size: 18px; }
+.gate p { margin: 0; color: #c5c7c0; font: 400 15px/1.5 var(--serif); }
+.gate .out { color: #b8bbb4; font: 13px/1.45 var(--sans); }
+.gate-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+.gate-strip .gate { display: block; padding: 0; }
+.gate-strip .gate-grid[data-ui] .gate + .gate { border: 0; }
+.two-col > .panel { min-width: 0; }
+.gate-strip .gate h3 { margin-bottom: 8px; }
+.poc-board[data-ui] { padding: clamp(18px, 3vw, 28px); background: #252525; color: #f1f1ef; }
+.poc-head { display: grid; grid-template-columns: 1.2fr .8fr; gap: 30px; padding: 0 0 22px; }
+.poc-head h3 { color: #f1f1ef; }
+.poc-head p { margin: 0; color: #c5c7c0; font: 15px/1.5 var(--serif); }
+.arms[data-ui] { display: grid; grid-template-columns: 1fr; }
+.arm { display: grid; grid-template-columns: minmax(190px, .65fr) 1.35fr; gap: 24px; padding: 17px 0; color: #f1f1ef; }
+.arms[data-ui] .arm + .arm { border-top: 1px solid #484943; }
+.arm.recommended { padding-left: 16px; border-left: 2px solid var(--accent); background: transparent; }
+.arm h3 { margin: 0; color: #f1f1ef; font-size: 17px; }
+.arm p { margin: 0; color: #c5c7c0; font: 15px/1.5 var(--serif); }
+.smallnote { margin: 12px 0 0; color: var(--muted); font: 14px/1.5 var(--serif); }
+.metric-table[data-ui], .metric-table { width: 100%; border-collapse: collapse; color: var(--ink); font: 15px/1.45 var(--sans); }
+.metric-table th, .metric-table td { padding: 12px 14px; border: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.metric-table th { background: transparent; color: var(--muted); font: 500 13px/1.35 var(--sans); }
+.metric-table td { color: var(--ink); }
+.metric-table td:first-child { font-weight: 600; }.risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 40px; }
+.risk { padding: 0; background: transparent; }
+.risk .tag { display: block; margin-bottom: 8px; color: var(--muted); font: 14px/1.4 var(--sans); }
+.risk h3 { margin: 0 0 8px; font-size: 18px; }
+.risk p { margin: 0; }
+.go, .no-go { padding: 22px; background: var(--surface); }
+.go h3, .no-go h3 { margin: 0 0 8px; color: var(--ink); font: 600 19px/1.35 var(--sans); }
+.go p, .no-go p { margin: 0; color: var(--muted); font: 16px/1.5 var(--serif); }
+.callout { margin-top: 24px; padding: 18px 20px; background: var(--surface); color: var(--ink); font: 16px/1.5 var(--serif); }
+.callout strong { color: var(--ink); font-family: var(--sans); }
+.roadmap { display: grid; grid-template-columns: 1fr; gap: 0; margin: 24px 0 30px; padding: 0; list-style: none; }
+.road-step { display: grid; grid-template-columns: minmax(210px, .7fr) 1.3fr; column-gap: 32px; row-gap: 6px; padding: 20px 0; }
+.road-step .when { grid-row: span 2; color: var(--muted); font: 14px/1.45 var(--sans); }
+.road-step h3 { margin: 0; font-size: 18px; }
+.road-step p { grid-column: 2; margin: 0; color: var(--muted); font: 400 15px/1.5 var(--serif); }
+.target { background: transparent; }
+.source-list { display: grid; grid-template-columns: 1fr; gap: 0; }
+.source { display: grid; grid-template-columns: minmax(170px, .65fr) 1.35fr; gap: 20px; padding: 17px 0; background: transparent; }
+.source .sn { display: none; }
+.source .kind { display: block; margin-bottom: 4px; color: var(--muted); font: 14px/1.4 var(--sans); }
+.source a { color: var(--ink); font: 600 17px/1.4 var(--sans); }
+.source p { margin: 6px 0 0; color: var(--muted); font: 15px/1.5 var(--serif); }
+.foot { display: flex; justify-content: space-between; gap: 22px; margin-top: 42px; padding: 0; color: var(--muted); font: 14px/1.5 var(--sans); }
+.foot strong { color: var(--ink); }
+.source-date { white-space: nowrap; }
+@keyframes headline-rise { from { transform: translateY(110%); } to { transform: translateY(0); } }
+@keyframes flow-dash { to { stroke-dashoffset: -30; } }
+.motion-ready .hero-line > span { animation: headline-rise .72s cubic-bezier(.2,.75,.25,1) both; }
+.motion-ready .hero-line:nth-child(2) > span { animation-delay: .1s; }
+.motion-ready .diagram .flow { animation: flow-dash 3s linear infinite; }
+.motion-ready .section > * { opacity: 0; transform: translateY(14px); transition: opacity .42s ease, transform .42s ease; transition-delay: var(--enter-delay, 0ms); }
+.motion-ready .section.is-visible > * { opacity: 1; transform: none; }
+@media (max-width: 1120px) {
+  .shell { grid-template-columns: 190px minmax(0,1fr); gap: 24px; }
+  .hero { min-height: 0; padding: 38px 30px; column-gap: 30px; }
+  .hero h1 { font-size: clamp(2.25rem, 4.3vw, 3.25rem); }
+  .demo-body { grid-template-columns: 1fr; }
+  .demo-result { padding: 0; }
+  .content { padding-top: 30px; }
+}
+@media (max-width: 980px) {
+  .shell { display: block; padding: 0 18px; }
+  .side { display: none; }
+  .hero { margin: 0 0 18px; }
+  .mobile-index { display: block; margin: 0 0 22px; }
+  .mobile-index details { padding: 0; }
+  .mobile-index summary { min-height: 44px; display: flex; align-items: center; color: var(--ink); font: 500 15px/1.4 var(--sans); cursor: pointer; }
+  .mobile-index nav { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 18px; padding: 8px 0 10px; }
+  .mobile-index a { padding: 7px 0; color: var(--muted); font: 14px/1.4 var(--sans); text-decoration: none; }
+  .content { max-width: none; padding: 18px 0 76px; }
+  .thesis-grid, .contract-layout { grid-template-columns: 1fr; }
+  .timeline { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 680px) {
+  .topbar { min-height: 56px; gap: 10px; }
+  .brand { max-width: 45vw; font-size: 13px; }
+  .top-actions { gap: 10px; }
+  .source-date { display: none; }
+  .pill-btn { min-height: 44px; font-size: 13px; }
+  .shell { padding: 0 14px; }
+  .hero { min-height: 0; padding: 18px; grid-template-columns: 1fr; grid-template-areas: "demo" "copy" "foot"; gap: 24px; }
+  .hero-demo[data-ui] { padding: 14px; }
+  .demo-body { grid-template-columns: 1fr; gap: 12px; }
+  .demo-code pre { font-size: 12px; }
+  .hero-copy { padding: 4px 2px 0; }
+  .hero h1 { max-width: 100%; margin-bottom: 16px; font-size: clamp(2.25rem, 9.2vw, 3.2rem); }
+  .hero-deck { margin-bottom: 18px; font-size: 17px; }
+  .hero-bottom { grid-template-columns: 1fr; gap: 10px; padding-top: 0; font-size: 14px; }
+  .hero-action { min-height: 46px; }
+  .section { margin-bottom: 72px; }
+  .section h2 { max-width: 100%; font-size: clamp(1.8rem, 7.6vw, 2.15rem); }
+  .lede { font-size: 17px; }
+  #thesis { padding: 25px 20px; }
+  .thesis-grid { gap: 22px; }
+  .thesis-card blockquote { font-size: 25px; }
+  .timeline { grid-template-columns: 1fr; gap: 22px; }
+  .late-failure { grid-template-columns: 1fr; }
+  .two-col, .risk-grid, .gate-strip, .poc-head { grid-template-columns: 1fr; }
+  .project { grid-template-columns: 1fr; gap: 8px; padding: 18px 4px; }
+  .project p, .project .decision { grid-column: 1; }
+  .arch-heading { display: block; }
+  .arch-heading p { margin-top: 8px; }
+  .arch-caption { display: block; }
+  .arch-caption span { display: block; margin-top: 6px; }
+  .gate-grid[data-ui] { padding: 0 14px; }
+  .gate { grid-template-columns: 1fr; gap: 8px; padding: 18px 0; }
+  .arms[data-ui], .arm { display: block; }
+  .arm { padding: 16px 0; }
+  .arms[data-ui] .arm + .arm { border-top: 1px solid #484943; }
+  .arm h3 { margin-bottom: 7px; }
+  .road-step { grid-template-columns: 1fr; gap: 6px; padding: 17px 0; }
+  .road-step .when { grid-row: auto; }
+  .road-step p { grid-column: 1; }
+  .source { grid-template-columns: 1fr; gap: 2px; padding: 15px 0; }
+  .source .kind { margin-bottom: 2px; }
+  .foot { display: block; }
+  .foot span { display: block; margin-top: 8px; }
+  .metric-table[data-ui] { display: block; overflow-x: auto; }
+  .metric-table th, .metric-table td { min-width: 125px; padding: 10px; font-size: 13px; }
+}
+@media (max-width: 360px) { .hero h1 { font-size: 29px; } .section h2 { font-size: 26px; } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *:before, *:after { animation: none !important; transition-duration: .01ms !important; transform: none !important; }
+}
+@media print {
+  :root { color-scheme: light; --ground: #fff; --ink: #111; --muted: #444; }
+  body { background: #fff; color: #111; font-size: 11pt; }
+  .topbar, .side, .mobile-index, .progress, .top-actions, .hero-action, .demo-tabs, .filterbar { display: none !important; }
+  .shell { display: block; max-width: none; padding: 0; }
+  .hero { min-height: 0; margin: 0 0 14mm; padding: 16mm; background: #1c1c1c !important; color: #f1f1ef !important; break-after: page; print-color-adjust: exact; }
+  .hero-demo, .arch-wrap, .codebox, .gate-grid, .poc-board { break-inside: avoid; print-color-adjust: exact; }
+  .content { max-width: none; padding: 0 8mm; }
+  .section { margin-bottom: 12mm; break-inside: auto; }
+  .section h2 { font-size: 25pt; }
+  .project, .source, .road-step, .arm, .risk { break-inside: avoid; }
+  .project[hidden] { display: grid !important; }
+  .foot { margin-top: 14mm; }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Agent systems / Engineering brief</div>
+  <div class="top-actions">
+    <span class="source-date">端侧模型 Onboarding · 2026.10.26</span>
+    <button class="pill-btn" id="themeToggle" type="button" aria-label="切换为浅色显示">浅色显示</button>
+    <button class="pill-btn" id="printBtn" type="button">打印 / PDF</button>
+  </div>
+  <div class="progress" id="progress" aria-hidden="true"></div>
+</header>
+<div class="shell">
+<aside class="side">
+  <p class="side-label">报告章节</p>
+  <nav id="sideNav">
+    <a href="#thesis">核心判断</a>
+    <a href="#failure">失败剖析</a>
+    <a href="#landscape">开源项目地图</a>
+    <a href="#architecture">推荐架构</a>
+    <a href="#contract">能力契约</a>
+    <a href="#preflight">Recipe 预检</a>
+    <a href="#poc">PoC 实验</a>
+    <a href="#decision">成功标准与反证</a>
+    <a href="#roadmap">推进路径</a>
+    <a href="#sources">资料与边界</a>
+  </nav>
+  <div class="side-note"><strong>核心判断</strong><br>为关键内部能力建立版本化、可验证、可检索的契约，再用实验检验它是否提高 Recipe 首次生成成功率。</div>
+</aside>
+<main>
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <h1 id="hero-title"><span class="hero-line"><span>Agent 能调用工具，</span></span><span class="hero-line"><span>但它会用对能力吗？</span></span></h1>
+    <p class="hero-deck">面向端侧模型 Onboarding：让内部 Python 能力可发现、可校验、可复用。</p>
+    <a class="hero-action" href="#architecture">查看建议架构 <span aria-hidden="true">↓</span></a>
+  </div>
+  <div class="hero-demo" data-ui aria-labelledby="demo-title">
+    <div class="demo-top">
+      <div>
+        <h2 id="demo-title">Recipe preflight</h2>
+        <p>示意模拟 · 不是实际运行结果</p>
+      </div>
+      <p>run(config) 前</p>
+    </div>
+    <div class="demo-tabs" role="group" aria-label="选择预检阶段">
+      <button type="button" class="demo-tab" data-stage="structure" aria-pressed="true">结构</button>
+      <button type="button" class="demo-tab" data-stage="semantic" aria-pressed="false">语义</button>
+      <button type="button" class="demo-tab" data-stage="environment" aria-pressed="false">环境</button>
+    </div>
+    <div class="demo-body">
+      <div class="demo-code">
+        <p class="demo-code-label">校验结果 · 示例 JSON</p>
+        <pre><code id="demoCode">{
+  "stage": "structure",
+  "result": "pass",
+  "checks": ["required", "type", "enum"]
+}</code></pre>
+      </div>
+      <div class="demo-result" id="demoResult" aria-live="polite">
+        <span class="demo-status" id="demoStatus">PASS</span>
+        <h3 id="demoHeading">字段和类型完整</h3>
+        <p id="demoMessage">示例 Recipe 通过结构和基础类型校验。</p>
+        <p class="demo-meta" id="demoMeta">必填字段 · 类型 · 枚举</p>
+      </div>
+    </div>
+  </div>
+  <div class="hero-bottom">
+    <p>核心案例：Agent 生成看似合理的 JSON Recipe，但参数、平台支持和前置条件仍藏在 Python 实现里，直到 GPU 运行后才暴露错误。</p>
+    <p class="hero-bottom-callout">将可验证的约束前移到执行之前；不让模型靠更长的 Prompt 猜规则。</p>
+  </div>
+</section>
+<div class="mobile-index">
+  <details>
+    <summary>打开章节导航</summary>
+    <nav>
+      <a href="#thesis">核心判断</a><a href="#failure">失败剖析</a>
+      <a href="#landscape">开源项目地图</a><a href="#architecture">推荐架构</a>
+      <a href="#contract">能力契约</a><a href="#preflight">Recipe 预检</a>
+      <a href="#poc">PoC 实验</a><a href="#decision">成功标准与反证</a>
+      <a href="#roadmap">推进路径</a><a href="#sources">资料与边界</a>
+    </nav>
+  </details>
+</div>
+<div class="content">
+<section class="section" id="thesis">
+<h2>缺的不是上下文，<br>而是机器可读的能力契约。</h2>
+  <p class="lede">当关键约束藏在 Python 实现里，Agent 看到了一个工具名、读到零散文档，并不等于知道怎么正确使用它。推荐方向是：保留 Skills + MCP，把它们放进一个更可控的闭环；为关键内部能力增加轻量契约层和运行前预检。</p>
+  <div class="thesis-grid">
+    <article class="thesis-card primary"><div class="card-label">Design principle / 设计原则</div><blockquote>把能力从“模型猜怎么用”，变成“系统能说明、能验证怎么用”。</blockquote><p>让模型负责理解需求、提出组合方案；让代码和测试负责描述并执行可验证的约束。</p></article>
+    <article class="thesis-card"><div class="card-label">Three claims to test / 三个待验证主张</div><div class="principle"><div><strong>检索帮助发现</strong><p>仓库地图与 API 索引能减少“没找到已有实现”的错误。</p></div></div><div class="principle"><div><strong>契约约束使用</strong><p>版本、前置条件、支持矩阵与示例能减少“找到却用错”的情况。</p></div></div><div class="principle"><div><strong>预检提前拦截</strong><p>确定性校验能在调用昂贵的 run(config) 前暴露一部分错误。</p></div></div></article>
+  </div>
+  <div class="warning-strip"><div class="symbol">↳</div><div><strong>不要把推断写成事实</strong><p>目前“能力契约会提高首次生成成功率”是值得检验的工程假设，不是已证明结论。本文后半部分给出对照实验与反证条件。</p></div></div>
+</section>
+<section class="section" id="failure">
+<h2>把错误拦在 GPU 之前。</h2>
+  <p class="lede">假设 Agent 需要生成一份量化 Recipe。内部库已有可用函数，但合法参数、适用平台和必要前置条件主要隐含在实现里。Agent 生成了看似合理的配置，前置检查不足，执行一段时间后才报错。</p>
+  <ol class="timeline" aria-label="从任务到延迟报错的流程">
+    <li class="step"><div><strong>任务输入</strong><p>模型、目标芯片、精度与运行目标</p></div></li>
+    <li class="step"><div><strong>专家参考</strong><p>分析结论与建议，不是完整可执行配置</p></div></li>
+    <li class="step bad"><div><strong>自行拼接参数</strong><p>字段、组合或默认值来自猜测</p></div></li>
+    <li class="step bad"><div><strong>昂贵执行启动</strong><p>早期门槛不足，问题没有被拦截</p></div></li>
+    <li class="step bad"><div><strong>运行后报错</strong><p>浪费 GPU 时间与工程师排查时间</p></div></li>
+  </ol>
+  <div class="late-failure"><div><strong>问题不只是“回答错了”。</strong><p>系统缺少一个在执行前把隐含约束转成机器可检查规则的地方；模型自己判断“这份 JSON 看起来合理”不能充当验证器。</p></div><div class="cost">延迟失败 · 额外 GPU 成本</div></div>
+  <div class="two-col">
+    <article class="panel"><h3>增加更多上下文</h3><p>可能改善能力发现：提供仓库地图、相关代码和调用点。但大量源码可能仍然缺少明确的适用范围、互斥关系和前置条件，也会引入检索噪声。</p><div class="chips"><span class="chip blue">发现问题</span><span class="chip">不保证合法</span></div></article>
+    <article class="panel"><h3>增加能力契约 + 预检</h3><p>把已知规则明确表达出来，并用确定性校验拦截不符合规则的配置。它无法凭空补齐未知规则，所以需要代码证据、测试和领域工程师共同维护。</p><div class="chips"><span class="chip lime">适用约束</span><span class="chip lime">执行前拦截</span></div></article>
+  </div>
+  <div class="quote-band"><div class="q">“</div><div><p>要优化的不是 Recipe 看起来有多聪明，而是它第一次生成时，能否通过可信约束，并进入一次可控的执行。</p><small>Working hypothesis / 本文工作假设，不是行业基准</small></div></div>
+</section>
+<section class="section" id="landscape">
+<h2>让每个项目待在<br>它擅长的位置。</h2>
+  <p class="lede">这些项目提供的是不同层面的积木，而不是一个可以直接解决内部库理解与 Recipe 生成的完整系统。推荐组合现有工具，并自建少量领域契约。</p>
+  <div class="filterbar" aria-label="按引入方式筛选项目"><button type="button" data-filter="all" aria-pressed="true">全部</button><button type="button" data-filter="adopt" aria-pressed="false">优先采用</button><button type="button" data-filter="borrow" aria-pressed="false">借鉴模式</button><button type="button" data-filter="optional" aria-pressed="false">暂缓引入</button></div>
+  <div class="landscape" id="projectGrid">
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>Aider · Repo Map</h3><a class="repo" href="https://aider.chat/docs/repomap.html" target="_blank" rel="noreferrer">aider.chat ↗</a></div><span class="verdict borrow">借鉴模式</span></div><p>把关键类、函数、签名与依赖关系压缩成代码地图，并按任务相关性选择上下文。适合解决“Agent 不知道能力在哪里”。</p><div class="decision"><strong>用来做</strong><span>内部仓库索引与相关代码检索的设计参考；不必为了 Repo Map 直接替换 Harness。</span></div></article>
+    <article class="project" data-kind="adopt"><div class="project-top"><div><h3>Griffe</h3><a class="repo" href="https://mkdocstrings.github.io/griffe/introduction/" target="_blank" rel="noreferrer">mkdocstrings.github.io ↗</a></div><span class="verdict">优先试用</span></div><p>从 Python 源码或运行时对象提取模块、函数、类、参数与文档信息，并可序列化为 JSON、比较 API 变化。</p><div class="decision"><strong>用来做</strong><span>本地生成 API skeleton 与签名清单；不要期待它自动发现所有领域语义。</span></div></article>
+    <article class="project" data-kind="adopt"><div class="project-top"><div><h3>JSON Schema / Pydantic</h3><a class="repo" href="https://json-schema.org/learn/getting-started-step-by-step" target="_blank" rel="noreferrer">json-schema.org ↗</a></div><span class="verdict">优先采用</span></div><p>为 JSON 结构、字段类型、必填项和可枚举值提供确定性验证。Python 侧可选 Pydantic 组织模型与校验逻辑。</p><div class="decision"><strong>用来做</strong><span>Recipe 结构校验的硬门槛；跨字段业务规则仍要自己实现。</span></div></article>
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>Repomix</h3><a class="repo" href="https://repomix.com/guide/mcp-server" target="_blank" rel="noreferrer">repomix.com ↗</a></div><span class="verdict borrow">快速 PoC</span></div><p>将代码库整理成适合 LLM 分析的上下文，也提供 MCP 模式。其 MCP 文档目前标为实验性；CLI 可本地处理代码，但代码发往哪里取决于后续模型调用。</p><div class="decision"><strong>用来做</strong><span>一次性本地仓库梳理；过滤敏感文件、审查输出，只连接批准的内网模型。</span></div></article>
+    <article class="project" data-kind="adopt"><div class="project-top"><div><h3>Promptfoo</h3><a class="repo" href="https://www.promptfoo.dev/docs/guides/evaluate-coding-agents/" target="_blank" rel="noreferrer">promptfoo.dev ↗</a></div><span class="verdict">优先评估</span></div><p>为模型或 Agent 建立可重复测试集，检查结构、行为、成本、延迟与多次运行的差异。可用本地 CLI 和内网模型服务执行。</p><div class="decision"><strong>用来做</strong><span>比较 Baseline / Repo Map / Contract / Combined 四种路线，而不是凭演示印象决策。</span></div></article>
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>MCP</h3><a class="repo" href="https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/server/tools.mdx" target="_blank" rel="noreferrer">协议规范 ↗</a></div><span class="verdict borrow">继续使用</span></div><p>标准化发现和调用工具，并提供 Resources / Prompts 等原语。它能承载契约查询，但协议本身不定义你们量化库的业务约束。</p><div class="decision"><strong>用来做</strong><span>作为可选传输和集成边界；同进程能力可先用 Python 函数直接调用。</span></div></article>
+    <article class="project" data-kind="optional"><div class="project-top"><div><h3>LangGraph</h3><a class="repo" href="https://github.com/langchain-ai/langgraph" target="_blank" rel="noreferrer">GitHub ↗</a></div><span class="verdict optional">后续再看</span></div><p>面向有状态、长时间运行、可恢复并需要人工介入的 Agent 工作流。它不负责发现内部 API 或自动生成量化库业务规则。</p><div class="decision"><strong>用来做</strong><span>只在当前 Harness 无法承担持久状态、检查点或恢复需求时再评估。</span></div></article>
+    <article class="project" data-kind="borrow"><div class="project-top"><div><h3>Agent Skills 标准</h3><a class="repo" href="https://agentskills.io/" target="_blank" rel="noreferrer">agentskills.io ↗</a></div><span class="verdict borrow">继续使用</span></div><p>把专门知识、流程、脚本和参考资料封装成可复用 Skill。2026-10-22，Anthropic 宣布将该开放标准捐赠给 Agentic AI Foundation。</p><div class="decision"><strong>用来做</strong><span>保留专家 Skills 的领域流程；契约层补充可机器校验的事实，不用它替代 Skills。</span></div></article>
+  </div>
+  <p class="smallnote">项目定位来自各自公开文档。这里的“优先采用 / 借鉴 / 暂缓”是结合你们需求作出的架构判断，不是项目维护者的推荐。</p>
+</section>
+<section class="section" id="architecture">
+<h2>模型负责推理，<br>契约负责约束。</h2>
+  <p class="lede">建议先不改变 DeepSeek Harness，也不要求其他团队重写 Skills。新增一层轻量的 Library Intelligence：将源代码可提取的事实自动整理，再用你们自己的元数据表达隐含的业务约束。</p>
+  <div class="arch-wrap" data-ui>
+    <div class="arch-heading"><div><div class="arch-label">Target state / first iteration</div><h3>从内部代码到可信的执行入口</h3></div><p>左侧是参考输入；中间将可发现性与能力契约结合；右侧是确定性校验与运行。领域规则留在版本化适配层维护。</p></div>
+    <svg class="diagram" viewBox="0 0 940 610" role="img" aria-labelledby="archTitle archDesc">
+      <title id="archTitle">端侧模型 Onboarding 的能力契约架构</title><desc id="archDesc">专家 Skills 的分析和证据进入 Orchestrator。Orchestrator 查询本地 API 索引与能力契约后生成 Recipe JSON。结构校验、语义规则和 dry-run 通过后，才调用 Python run config。执行、端侧评测和人工确认的结果回流 Recipe Register。</desc>
+      <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#a9b5ac"/></marker><marker id="limeArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#d8f36a"/></marker></defs>
+      <rect x="12" y="20" width="198" height="100" rx="12" class="outline"/><text x="30" y="47" class="tiny">INPUTS</text><text x="30" y="72" class="boxtext">Expert Skills</text><text x="30" y="94" class="subtext">结论 / 参数建议 / 证据</text>
+      <rect x="12" y="145" width="198" height="100" rx="12" class="outline"/><text x="30" y="173" class="tiny">LOCAL REPOSITORIES</text><text x="30" y="198" class="boxtext">Python 源码与测试</text><text x="30" y="220" class="subtext">只在公司内网处理</text>
+      <rect x="12" y="270" width="198" height="100" rx="12" class="outline"/><text x="30" y="298" class="tiny">AUTOMATED EXTRACTION</text><text x="30" y="323" class="boxtext">API Index / Repo Map</text><text x="30" y="345" class="subtext">符号 / 签名 / 调用线索</text>
+      <rect x="12" y="395" width="198" height="100" rx="12" class="outline"/><text x="30" y="423" class="tiny">CURATED KNOWLEDGE</text><text x="30" y="448" class="boxtext">Capability Contracts</text><text x="30" y="470" class="subtext">适用范围 / 前置 / 反例</text>
+      <rect x="270" y="75" width="205" height="94" rx="13" class="bluebox"/><text x="290" y="103" class="tiny">REASONING</text><text x="290" y="129" class="boxtext">Orchestrator</text><text x="290" y="149" class="subtext">选择 / 组合 / 生成 JSON</text>
+      <rect x="270" y="215" width="205" height="95" rx="13" class="outline"/><text x="290" y="244" class="tiny">DISCOVERY</text><text x="290" y="270" class="boxtext">Contract Lookup</text><text x="290" y="291" class="subtext">get capabilities / examples</text>
+      <rect x="270" y="356" width="205" height="95" rx="13" class="limebox"/><text x="290" y="382" class="darktiny">RECIPE GENERATION</text><text x="290" y="406" class="darktitle">JSON + Provenance</text><text x="290" y="428" class="darksub">合同版本 / 引用依据</text>
+      <rect x="540" y="75" width="174" height="105" rx="13" class="whitebox"/><text x="559" y="102" class="darktiny">GATE 01</text><text x="559" y="127" class="darktitle">Schema</text><text x="559" y="149" class="darksub">类型 / 必填 / 枚举</text>
+      <rect x="540" y="213" width="174" height="105" rx="13" class="whitebox"/><text x="559" y="240" class="darktiny">GATE 02</text><text x="559" y="265" class="darktitle">Semantic Rules</text><text x="559" y="287" class="darksub">适配组合 / 前置条件</text>
+      <rect x="540" y="351" width="174" height="105" rx="13" class="whitebox"/><text x="559" y="378" class="darktiny">GATE 03</text><text x="559" y="403" class="darktitle">Dry-run / Preflight</text><text x="559" y="425" class="darksub">依赖 / 路径 / 环境</text>
+      <rect x="770" y="111" width="158" height="120" rx="13" class="limebox"/><text x="789" y="139" class="darktiny">EXECUTION</text><text x="789" y="163" class="darktitle">run(config)</text><text x="789" y="185" class="darksub">生成 model.bin</text><text x="789" y="205" class="darksub">仅预检通过后</text>
+      <rect x="770" y="273" width="158" height="112" rx="13" class="outline"/><text x="789" y="302" class="tiny">VALIDATE</text><text x="789" y="329" class="boxtext">Device KPI / PPL</text><text x="789" y="351" class="subtext">local / device farm</text><text x="789" y="369" class="subtext">评估与日志</text>
+      <rect x="770" y="427" width="158" height="100" rx="13" class="outline"/><text x="789" y="455" class="tiny">HUMAN GATE</text><text x="789" y="480" class="boxtext">Review / Register</text><text x="789" y="502" class="subtext">人工批准后可复用</text>
+      <path d="M210 70 H250 V110 H270" class="path" marker-end="url(#arr)"/><path d="M210 195 H240 V260 H270" class="path" marker-end="url(#arr)"/><path d="M210 320 H240 V260 H270" class="path" marker-end="url(#arr)"/><path d="M210 445 H240 V270 H270" class="path" marker-end="url(#arr)"/><path d="M370 169 V215" class="path" marker-end="url(#arr)"/><path d="M370 310 V356" class="flow" marker-end="url(#limeArr)"/><path d="M475 403 H506 V127 H540" class="flow" marker-end="url(#limeArr)"/><path d="M627 180 V213" class="path" marker-end="url(#arr)"/><path d="M627 318 V351" class="path" marker-end="url(#arr)"/><path d="M714 404 H743 V172 H770" class="flow" marker-end="url(#limeArr)"/><path d="M849 231 V273" class="path" marker-end="url(#arr)"/><path d="M849 385 V427" class="path" marker-end="url(#arr)"/><path d="M849 527 V550 H105 V495" class="path dashed" marker-end="url(#arr)"/><text x="412" y="544" class="subtext">Registry stores evidence, artifact hashes, evaluation and approval</text>
+      <text x="13" y="568" class="tiny">AUTOMATED FACTS</text><text x="13" y="587" class="subtext">signatures / schemas / tests / source refs</text><text x="310" y="568" class="tiny">CURATED RULES</text><text x="310" y="587" class="subtext">business constraints / applicability / known exceptions</text><text x="640" y="568" class="tiny">HARD BOUNDARY</text><text x="640" y="587" class="subtext">invalid config never reaches expensive run</text>
+    </svg>
+    <div class="arch-caption"><span><strong>Auto-extract</strong> source, signature, types, tests, version</span><span><strong>Curate locally</strong> semantics that code analysis cannot infer reliably</span><span><strong>Fail closed</strong> any critical uncertainty blocks run</span></div>
+  </div>
+  <div class="callout"><strong>Important boundary：</strong>契约层不一定要变成新的微服务。PoC 可以只是一个本地 Python 包 + 版本化 YAML/JSON 元数据 + CLI validator；当它需要跨进程或跨团队复用时，再把查询接口暴露为 MCP。</div>
+</section>
+<section class="section" id="contract">
+<h2>把“怎么用”<br>写成机器可读的契约。</h2>
+  <p class="lede">源码分析工具能提供“函数存在、签名是什么、在哪里实现”；但“哪个芯片/runtime 支持它”“哪些字段互斥”“什么条件下禁止运行”往往仍需要团队补充。能力契约把两类信息合并，并绑定到库版本。</p>
+  <div class="contract-layout">
+    <article class="contract-copy"><div class="card-label">Proposed contract / 示意字段</div><h3>一个契约应该能回答 6 个问题</h3><p>下面是建议的元数据设计，不是你们底层库的真实 API，也不暗示这些约束已经存在。</p><ul class="contract-fields"><li><b>identity</b><span>能力 ID、契约版本、仓库 commit、owner</span></li><li><b>implementation</b><span>真实模块/符号、参数签名、源码定位</span></li><li><b>applicability</b><span>模型族、目标平台、runtime、precision 的支持范围</span></li><li><b>preconditions</b><span>必须先完成的步骤、必需文件/数据、互斥组合</span></li><li><b>examples</b><span>通过校验的最小样例、已知失败与负例</span></li><li><b>validation</b><span>Schema、业务规则、dry-run 命令、证据与测试引用</span></li></ul></article>
+    <div class="codebox" data-ui><div class="code-head"><span>capability-contract.yaml</span><span>示例字段 · 需映射实际实现</span></div><pre><code><span class="key">id</span>: <span class="string">quantization.prepare</span>
+<span class="key">contract_version</span>: <span class="string">0.1.0</span>
+<span class="key">implementation</span>:
+  <span class="key">repo</span>: <span class="string">internal-quantization-lib</span>
+  <span class="key">commit</span>: <span class="string">&lt;git-sha&gt;</span>
+  <span class="key">symbol</span>: <span class="string">&lt;module.function&gt;</span>
+  <span class="key">source_ref</span>: <span class="string">&lt;file:line&gt;</span>
+<span class="key">applicability</span>:
+  <span class="key">model_families</span>: [<span class="string">&lt;approved-family&gt;</span>]
+  <span class="key">targets</span>: [<span class="string">&lt;validated-target&gt;</span>]
+<span class="key">preconditions</span>:
+  - <span class="string">&lt;required-prior-step&gt;</span>
+<span class="key">constraints</span>:
+  - <span class="key">rule_id</span>: <span class="string">R-001</span>
+    <span class="key">severity</span>: <span class="string">error</span>
+    <span class="key">when</span>: <span class="string">&lt;predicate over config&gt;</span>
+    <span class="key">message</span>: <span class="string">&lt;actionable explanation&gt;</span>
+<span class="key">examples</span>:
+  <span class="key">valid</span>: <span class="string">&lt;approved-example-id&gt;</span>
+  <span class="key">invalid</span>: <span class="string">&lt;known-bad-example-id&gt;</span>
+<span class="key">validation</span>:
+  <span class="key">schema</span>: <span class="string">&lt;schema-ref&gt;</span>
+  <span class="key">preflight</span>: <span class="string">&lt;local-command-or-callable&gt;</span>
+<span class="key">status</span>: <span class="string">draft | verified | deprecated</span></code></pre><div class="code-note">Illustrative metadata only. The contract should point to real source / tests and must be pinned to the library revision used for each run.</div></div>
+  </div>
+  <div class="two-col">
+    <article class="panel"><h3>机器可以自动提取的内容</h3><p>包与模块结构、公共函数、签名和类型、docstring、部分默认值、测试定位、Git 版本差异。Griffe 是可研究的起点；Aider Repo Map 是相关代码图谱的设计参考。</p><div class="chips"><span class="chip blue">自动化</span><span class="chip">可随版本重建</span></div></article>
+    <article class="panel"><h3>必须显式维护的业务事实</h3><p>芯片/模型支持矩阵、参数交互约束、风险等级、必要前置条件、有效与无效的真实案例。可先由领域工程师维护在自己的 adapter/metadata repo，不依赖底层库团队配合。</p><div class="chips"><span class="chip lime">人工确认</span><span class="chip">引用证据</span></div></article>
+  </div>
+</section>
+<section class="section" id="preflight">
+<h2>先校验 Recipe，<br>再启动 GPU。</h2>
+  <p class="lede">不要让同一个 Agent 同时担任“配置作者”和“最终验证者”。Recipe 由 Orchestrator 生成；预检器是确定性工具，返回机器可读、可定位的错误；Orchestrator 可以据此有限修正，再重新预检。</p>
+  <div class="sequence" aria-label="Recipe generation预检过程"><div class="seq-node">专家结果 + 任务信息</div><span class="seq-arrow">→</span><div class="seq-node">查询契约 / 示例</div><span class="seq-arrow">→</span><div class="seq-node active">生成完整 JSON</div><span class="seq-arrow">→</span><div class="seq-node">Preflight</div><span class="seq-arrow">→</span><div class="seq-node active">run(config)</div></div>
+  <div class="gate-grid" data-ui>
+    <article class="gate"><h3>结构校验</h3><p>JSON 解析、必填字段、类型、枚举、范围与字段是否拼错。由 JSON Schema / Pydantic 等确定性验证。</p><span class="out">输出：字段级错误</span></article>
+    <article class="gate"><h3>语义校验</h3><p>跨字段约束、平台兼容性、必需先决步骤、互斥配置与支持矩阵。来源必须指向已确认规则或测试。</p><span class="out">输出：规则编号与解释</span></article>
+    <article class="gate"><h3>环境 / Dry-run</h3><p>依赖版本、路径、文件是否存在、权限、目标设备/工具可用性。库没有 dry-run 时，先做安全的薄预检，而非假装已完整验证。</p><span class="out">输出：阻断、警告或可执行</span></article>
+  </div>
+  <div class="two-col">
+    <article class="panel"><h3>错误应该是结构化的</h3><p>例如返回 <code class="inline-code">rule_id</code>、JSON Pointer、严重级别、实际值、期望条件、证据出处和建议动作。比返回一段含糊的自然语言 traceback 更容易让 Agent 修正。</p></article>
+    <article class="panel"><h3>限制修正循环</h3><p>允许有限次修正（例如最多 2 次），保存初稿、每次差异、校验输出和最终配置。出现未知规则、互相矛盾的专家建议或高风险变更，转人工而不是无限重试。</p></article>
+  </div>
+  <div class="warning-strip"><div class="symbol">!</div><div><strong>Fail closed on critical unknowns</strong><p>如果配置涉及契约不覆盖的高风险参数组合、未知的目标支持范围或无法确认的前置步骤，应阻止执行或进入人工审批。低风险提示可以警告，关键约束不可以靠模型补猜。</p></div></div>
+</section>
+<section class="section" id="poc">
+<h2>先做小型实验，<br>再决定是否推广。</h2>
+  <p class="lede">从一个内部 Python 仓库、少量高频量化/适配能力与历史 Recipe 开始。先离线生成 JSON 并预检；不必一开始就启动完整 GPU/设备流程。只对少量代表任务进行真实执行，以验证预检与真实 runner 的相关性。</p>
+  <div class="poc-board" data-ui>
+    <div class="poc-head"><div><h3>实验分组</h3><p>同一模型、同一任务集、同一执行预算；变化只在能力上下文和契约机制。</p></div><div><h3>建议规模</h3><p>先取 20–30 个具有代表性的历史任务；每组重复 2 次。此规模是 PoC 起点，不是统计显著性保证。</p></div></div>
+    <div class="arms" data-ui>
+      <article class="arm"><div class="letter">Baseline</div><h4>当前 Skills + MCP</h4><p>只使用现有流程与常规提示，建立当前首次生成成功率的基准。</p></article>
+      <article class="arm"><div class="letter">Local retrieval</div><h4>加本地 Repo Map / API 检索</h4><p>测试“让 Agent 找得到代码”单独带来多少提升。</p></article>
+      <article class="arm"><div class="letter">Contract + preflight</div><h4>契约 + 确定性预检</h4><p>测试“清晰支持约束和校验”单独带来多少提升。</p></article>
+      <article class="arm recommended"><div class="letter">Combined approach</div><h4>本地检索 + 契约 + 预检</h4><p>测试完整闭环。目标是判断组合是否优于单独加检索或单独加校验。</p></article>
+    </div>
+  </div>
+  <table class="metric-table" data-ui><thead><tr><th>度量</th><th>操作定义</th><th>为什么重要</th></tr></thead><tbody>
+    <tr><td>首次生成成功率 <span class="target">主指标</span></td><td>第一份 JSON 在没有人工编辑、也没有 Agent 自我修正的情况下，通过结构与语义预检。</td><td>直接衡量一次生成质量；同时记录每类失败原因，避免一个总数字掩盖问题。</td></tr>
+    <tr><td>首次执行成功率</td><td>在选定的代表性子集上，第一份 Recipe 直接通过真实 Python runner 的早期检查并执行成功。</td><td>防止预检器只学会“让自己通过”，却无法预测真实执行。</td></tr>
+    <tr><td>非法字段 / 参数率</td><td>未知字段、虚构参数、类型错误、无效组合的发生率。</td><td>验证能力契约能否减少 Agent 自行臆造和拼接 API 的情况。</td></tr>
+    <tr><td>修正轮次与耗时</td><td>生成到预检通过的修正次数、模型调用、token、墙钟时间；真实 run 时间单独统计。</td><td>防止通过大量自我修正提高成功率，却扩大总体成本。</td></tr>
+    <tr><td>契约维护成本</td><td>领域工程师新增 / 更新契约与回归样例花费的时间。</td><td>确认自动提取与人工维护的边界，在工程收益与维护负担之间做取舍。</td></tr>
+    <tr><td>关键错误漏检数</td><td>人工标注为 critical 的问题却被预检器放行的数量。</td><td>安全门槛。PoC 应力争为 0；任何漏检都要归类并补规则。</td></tr>
+  </tbody></table>
+  <p class="smallnote">控制变量：固定内网模型版本、系统提示版本、温度/采样设置、可用工具及最大调用预算；任务顺序随机化；盲评最终 Recipe。预检失败和真实执行失败要分开记录，避免把“没有报错”误当成“模型质量达标”。</p>
+</section>
+<section class="section" id="decision">
+<h2>先定义结果，<br>再决定是否推广。</h2>
+  <p class="lede">建议先以“契约机制”为核心 PoC 候选，但不承诺它必然胜出。以下阈值是为团队第一次决策提出的暂定门槛，必须在看到数据前确认，不能称为行业标准。</p>
+  <div class="gate-strip"><article class="go"><strong>继续推进的暂定条件</strong><p>完整方案 D 相对 Baseline 首次生成成功率提升至少 15 个百分点；关键错误被预检放行数为 0；收益不是通过无限增加修正轮次取得；契约维护成本处于团队可接受范围。</p></article><article class="no-go"><strong>暂停或调整的条件</strong><p>若 D 没有稳定优于 B 或 C，或提升只体现在 JSON 格式、对语义/真实执行无改善，应停止扩展架构；先定位误差来源，而不是继续堆检索或更多 Skills。</p></article></div>
+  <div class="risk-grid">
+    <article class="risk"><span class="tag">Counter-hypothesis A</span><h3>错误主要来自需求缺失，而不是库知识</h3><p>若客户任务未提供目标 runtime、设备或 KPI 门槛，再好的契约也无法推导未知输入。需要任务澄清和需求完整性检查。</p></article>
+    <article class="risk"><span class="tag">Counter-hypothesis B</span><h3>契约不完整或过时</h3><p>若关键约束散落在分支条件或测试外，契约可能给出错误安全感。必须绑定 commit、来源和测试，版本变化触发重验。</p></article>
+    <article class="risk"><span class="tag">Counter-hypothesis C</span><h3>模型推理与多步规划才是瓶颈</h3><p>如果能力已被正确发现、契约也足够明确，而模型仍无法根据专家结论选择正确流程，才应优化规划策略、提示、模型或使用确定性模板。</p></article>
+    <article class="risk"><span class="tag">Counter-hypothesis D</span><h3>规则维护成本高于收益</h3><p>若只对极少数低频 API 有用，不要给全仓库建契约。仅覆盖高频、高失败成本、高隐含约束的能力节点。</p></article>
+  </div>
+  <div class="callout"><strong>一个有用的决策原则：</strong>契约不是替代模型推理，而是压缩模型必须猜测的部分。若某个规则能用代码明确判断，就不要让 LLM 一再推理它。</div>
+</section>
+<section class="section" id="roadmap">
+<h2>从一个失败案例开始。</h2>
+  <p class="lede">PoC 最小化：一份内部库、一种量化/适配场景、一套契约、一组真实任务、一个预检入口。先证明收益，再决定是否推广至其他 Skills、平台和设备。</p>
+  <ol class="roadmap">
+    <li class="road-step"><div class="when">Days 1–2 / 定基线</div><h3>选任务，收集失败样本</h3><p>从历史 Recipe Register 挑选 20–30 个任务；收集已验收配置、运行日志和已知失败。人工标注关键约束与成功判据，并冻结当前流程版本。</p></li>
+    <li class="road-step"><div class="when">Days 3–5 / 建索引与契约</div><h3>Griffe + Repo Map 思路 + 手工业务元数据</h3><p>本地扫描目标仓库、生成 API 索引和代码引用；优先为少量高风险步骤补充支持矩阵、前置条件、有效/无效案例与版本 pinning。</p></li>
+    <li class="road-step"><div class="when">Days 6–8 / 接入 Orchestrator</div><h3>提供查询与校验接口</h3><p>先用受控 Python API 或 CLI，暴露能力查询、合同读取、示例查询与 validate_recipe。仅在需要跨进程 / 多客户端时包装为 MCP tools。</p></li>
+    <li class="road-step"><div class="when">Days 9–10 / 对照评测</div><h3>跑 A/B/C/D 四组实验</h3><p>记录首稿、校验错误、修正轮次、模型开销与真实执行结果。复核关键漏检；产出是否继续投资的明确结论。</p></li>
+    <li class="road-step"><div class="when">After PoC / 扩大范围</div><h3>只推广已证明有效的模式</h3><p>对被证实有收益的能力类别加契约模板和版本检查，再推广到其他 Python 仓库；Recipe Register 保存契约版本、Run 证据、Artifact digest、端侧指标与人工审批。</p></li>
+  </ol>
+  <div class="two-col">
+    <article class="panel"><h3>明确不做</h3><p>不重写 DeepSeek Harness；不让其他团队修改自己的 Skills；不将源码发送到公共托管服务；不从全仓库代码知识图谱和复杂多 Agent 系统起步；不在首轮 PoC 里要求完整设备农场闭环。</p></article>
+    <article class="panel"><h3>最小交付物</h3><p>① 仓库 API 索引 ② 版本化能力契约 ③ 本地 Recipe preflight CLI/API ④ Orchestrator 查询接入 ⑤ 20–30 条历史回归任务 ⑥ A/B/C/D 结果与 Go / No-go 结论。</p></article>
+  </div>
+</section>
+<section class="section" id="sources">
+<h2>研究依据与适用边界。</h2>
+  <p class="lede">以下是本研究直接参考的项目文档与规范。开源工具能力以其公开文档为准；关于“怎么组合成你们的架构”和“PoC 阈值多少合适”的结论属于本报告提出的方案，尚待内部数据验证。</p>
+  <div class="source-list">
+    <article class="source"><div><div class="kind">Code context</div><a href="https://aider.chat/docs/repomap.html" target="_blank" rel="noreferrer">Aider · Repository map ↗</a><p>关键符号、调用签名、依赖图与按相关性压缩上下文的官方说明。</p></div></article>
+    <article class="source"><div><div class="kind">Python API extraction</div><a href="https://mkdocstrings.github.io/griffe/introduction/" target="_blank" rel="noreferrer">Griffe · Introduction ↗</a><p>从源码或运行时对象提取 API 模型，并序列化为 JSON / 比较版本差异。</p></div></article>
+    <article class="source"><div><div class="kind">Repository context</div><a href="https://repomix.com/guide/mcp-server" target="_blank" rel="noreferrer">Repomix · MCP server ↗</a><p>本地代码库包装为上下文的方式；文档指出 MCP 功能为实验性。</p></div></article>
+    <article class="source"><div><div class="kind">Privacy / security</div><a href="https://repomix.com/guide/security" target="_blank" rel="noreferrer">Repomix · Security ↗</a><p>本地输出、敏感信息检查及不可信仓库配置的风险边界。</p></div></article>
+    <article class="source"><div><div class="kind">Validation</div><a href="https://json-schema.org/learn/getting-started-step-by-step" target="_blank" rel="noreferrer">JSON Schema · Getting started ↗</a><p>通过正式 schema 验证 JSON 实例的基础机制。</p></div></article>
+    <article class="source"><div><div class="kind">Tool protocol</div><a href="https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/server/tools.mdx" target="_blank" rel="noreferrer">MCP · Tools specification ↗</a><p>工具的 schema、发现和调用；协议不规定你们的量化业务语义。</p></div></article>
+    <article class="source"><div><div class="kind">Agent evaluation</div><a href="https://www.promptfoo.dev/docs/guides/evaluate-coding-agents/" target="_blank" rel="noreferrer">Promptfoo · Evaluate coding agents ↗</a><p>Agent 的评测需要看中间步骤、重复运行、成本、延迟和结构化断言。</p></div></article>
+    <article class="source"><div><div class="kind">Agent workflow</div><a href="https://github.com/langchain-ai/langgraph/blob/main/README.md" target="_blank" rel="noreferrer">LangGraph · README ↗</a><p>长时间运行、持久化执行和人工介入能力；只在现有 Harness 有缺口时考虑。</p></div></article>
+    <article class="source"><div><div class="kind">Skills standard</div><a href="https://www.anthropic.com/news/donating-agent-skills-to-the-agentic-ai-foundation" target="_blank" rel="noreferrer">Anthropic · Agent Skills donation, 22 Oct 2026 ↗</a><p>标准捐赠至 Agentic AI Foundation 的公告；此处仅用来说明标准化方向，不代表 Skills 可代替能力契约。</p></div></article>
+  </div>
+  <div class="contract-warning"><strong>内网安全边界：</strong>所有源码读取、API 索引、契约、评测样本与日志都应留在公司批准的内网环境。开源工具可以在内网自托管/本地运行；仅使用公司批准的内网企业大模型服务。不要因为某 CLI 默认本地执行，就假设后续模型请求也一定不会出网；必须核对整个数据路径。</div>
+  <div class="foot"><div><strong>AGENTIC PLATFORM / FIELDNOTES</strong><br>端侧模型 Onboarding · Capability contracts</div><span>研究快照：2026-10-26<br>方案与阈值均需内部 PoC 验证</span></div>
+</section>
+</div>
+</main>
+</div>
+<script>
+(function(){
+  const body = document.body;
+  const themeBtn = document.getElementById('themeToggle');
+  themeBtn.addEventListener('click', () => {
+    const light = body.classList.toggle('light');
+    themeBtn.textContent = light ? '深色显示' : '浅色显示';
+    themeBtn.setAttribute('aria-label', light ? '切换为深色显示' : '切换为浅色显示');
+  });
+  document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+  const progress = document.getElementById('progress');
+  const updateProgress = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progress.style.width = (max > 0 ? window.scrollY / max * 100 : 0) + '%';
+  };
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+
+  const stageContent = {
+    structure: {
+      status: 'PASS',
+      heading: '字段和类型完整',
+      message: '示例 Recipe 通过结构和基础类型校验。',
+      meta: '必填字段 · 类型 · 枚举',
+      data: { stage: 'structure', result: 'pass', checks: ['required', 'type', 'enum'] }
+    },
+    semantic: {
+      status: 'BLOCK',
+      heading: '支持矩阵未覆盖该组合',
+      message: '示意规则：目标与 runtime 组合未经验证，预检应阻止调用。',
+      meta: '示例规则 R-001 · 不启动 runner',
+      data: { stage: 'semantic', result: 'blocked', rule_id: 'R-001', reason: 'target/runtime pair not verified' }
+    },
+    environment: {
+      status: 'SKIP',
+      heading: '本轮不启动执行环境',
+      message: '前置语义校验未通过，因此不检查设备、路径或依赖。',
+      meta: 'runner_started: false',
+      data: { stage: 'environment', result: 'skipped', reason: 'upstream validation blocked', runner_started: false }
+    }
+  };
+  const demoTabs = [...document.querySelectorAll('.demo-tab')];
+  const demoCode = document.getElementById('demoCode');
+  const demoStatus = document.getElementById('demoStatus');
+  const demoHeading = document.getElementById('demoHeading');
+  const demoMessage = document.getElementById('demoMessage');
+  const demoMeta = document.getElementById('demoMeta');
+  demoTabs.forEach(tab => tab.addEventListener('click', () => {
+    const value = stageContent[tab.dataset.stage];
+    demoTabs.forEach(item => item.setAttribute('aria-pressed', String(item === tab)));
+    demoStatus.textContent = value.status;
+    demoHeading.textContent = value.heading;
+    demoMessage.textContent = value.message;
+    demoMeta.textContent = value.meta;
+    demoCode.textContent = JSON.stringify(value.data, null, 2);
+  }));
+
+  const filterButtons = [...document.querySelectorAll('.filterbar button')];
+  const projects = [...document.querySelectorAll('.project')];
+  filterButtons.forEach(button => button.addEventListener('click', () => {
+    const filter = button.dataset.filter;
+    filterButtons.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+    projects.forEach(project => { project.hidden = !(filter === 'all' || project.dataset.kind === filter); });
+  }));
+
+  const links = [...document.querySelectorAll('#sideNav a')];
+  const sections = links.map(link => document.querySelector(link.getAttribute('href'))).filter(Boolean);
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(link => link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id));
+      }
+    }), { rootMargin: '-20% 0px -65% 0px' });
+    sections.forEach(section => observer.observe(section));
+
+    const motionObserver = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        motionObserver.unobserve(entry.target);
+      }
+    }), { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.section').forEach(section => {
+      [...section.children].forEach((child, index) => child.style.setProperty('--enter-delay', String(index * 70) + 'ms'));
+      motionObserver.observe(section);
+    });
+    body.classList.add('motion-ready');
+  }
+})();
+</script>
+</body>
+</html>
