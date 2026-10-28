@@ -23,6 +23,8 @@
   ·
   <a href="docs/agentic-recipe-engineering-zh-editorial.html">Recipe 工程化特稿</a>
   ·
+  <a href="docs/capability_arena_端侧模型Onboarding研究_中文版_v1_1.html">Capability Arena 研究</a>
+  ·
   <a href="docs/architecture.md">架构</a>
   ·
   <a href="docs/tool-reference.md">工具清单</a>
@@ -212,6 +214,8 @@ docs/
   agentic-capability-contracts-research.en.html         能力契约英文报告
   agentic-recipe-engineering-zh-editorial.html          Recipe 工程化中文特稿
   agentic-recipe-engineering-en-editorial.html          Recipe 工程化英文特稿
+  capability_arena_端侧模型Onboarding研究_中文版_v1_1.html Capability Arena 中文研究与设计 v1.1
+  agentic_onboarding_capability_arena_design_v1_1.html  Capability Arena 英文研究与设计 v1.1
   edge-ai-technology-research.md                        2026 端侧 AI 与 Agentic 前沿调研
   infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md

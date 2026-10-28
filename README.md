@@ -23,6 +23,8 @@
   ·
   <a href="docs/agentic-recipe-engineering-en-editorial.html">Recipe Engineering</a>
   ·
+  <a href="docs/agentic_onboarding_capability_arena_design_v1_1.html">Capability Arena</a>
+  ·
   <a href="docs/architecture.md">Architecture</a>
   ·
   <a href="docs/tool-reference.md">Tool Reference</a>
@@ -213,6 +215,8 @@ docs/
   agentic-capability-contracts-research.en.html         English capability contracts report
   agentic-recipe-engineering-zh-editorial.html          Chinese recipe engineering editorial
   agentic-recipe-engineering-en-editorial.html          English recipe engineering editorial
+  agentic_onboarding_capability_arena_design_v1_1.html  Capability Arena English design v1.1
+  capability_arena_端侧模型Onboarding研究_中文版_v1_1.html Capability Arena Chinese research v1.1
   edge-ai-technology-research.md                        2026 edge AI and agentic research
   infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md
