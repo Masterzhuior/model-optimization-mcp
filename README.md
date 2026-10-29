@@ -23,7 +23,9 @@
   ·
   <a href="docs/agentic-recipe-engineering-en-editorial.html">Recipe Engineering</a>
   ·
-  <a href="docs/agentic_onboarding_capability_arena_design_v1_1.html">Capability Arena</a>
+  <a href="docs/model-onboarding-lab-v1.2-en.html">Model Onboarding Lab v1.2</a>
+  ·
+  <a href="docs/agentic_onboarding_capability_arena_design_v1_1.html">Capability Arena v1.1</a>
   ·
   <a href="docs/architecture.md">Architecture</a>
   ·
@@ -215,8 +217,12 @@ docs/
   agentic-capability-contracts-research.en.html         English capability contracts report
   agentic-recipe-engineering-zh-editorial.html          Chinese recipe engineering editorial
   agentic-recipe-engineering-en-editorial.html          English recipe engineering editorial
+  model-onboarding-lab-v1.2-en.html                     Model Onboarding Lab English design v1.2 (HTML)
+  model-onboarding-lab-v1.2-zh.html                     Model Onboarding Lab Chinese design v1.2 (HTML)
+  model-onboarding-lab-v1.2.md                          Model Onboarding Lab design v1.2 (Markdown source)
+  model-onboarding-lab-inputs.md                        Inputs: SOTA methods, topology, experiments
   agentic_onboarding_capability_arena_design_v1_1.html  Capability Arena English design v1.1
-  capability_arena_端侧模型Onboarding研究_中文版_v1_1.html Capability Arena Chinese research v1.1
+  agentic_onboarding_capability_arena_design_zh_v1_1.html Capability Arena Chinese design v1.1
   edge-ai-technology-research.md                        2026 edge AI and agentic research
   infrastructure-reference-architecture.md
   mediatek-neuropilot-comparable-design.md

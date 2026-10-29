@@ -23,7 +23,9 @@
   ·
   <a href="docs/agentic-recipe-engineering-zh-editorial.html">Recipe 工程化特稿</a>
   ·
-  <a href="docs/capability_arena_端侧模型Onboarding研究_中文版_v1_1.html">Capability Arena 研究</a>
+  <a href="docs/model-onboarding-lab-v1.2-zh.html">Model Onboarding Lab v1.2</a>
+  ·
+  <a href="docs/agentic_onboarding_capability_arena_design_zh_v1_1.html">Capability Arena v1.1</a>
   ·
   <a href="docs/architecture.md">架构</a>
   ·
@@ -214,7 +216,11 @@ docs/
   agentic-capability-contracts-research.en.html         能力契约英文报告
   agentic-recipe-engineering-zh-editorial.html          Recipe 工程化中文特稿
   agentic-recipe-engineering-en-editorial.html          Recipe 工程化英文特稿
-  capability_arena_端侧模型Onboarding研究_中文版_v1_1.html Capability Arena 中文研究与设计 v1.1
+  model-onboarding-lab-v1.2-zh.html                     Model Onboarding Lab 中文设计 v1.2（HTML）
+  model-onboarding-lab-v1.2-en.html                     Model Onboarding Lab 英文设计 v1.2（HTML）
+  model-onboarding-lab-v1.2.md                          Model Onboarding Lab 设计 v1.2（Markdown 源）
+  model-onboarding-lab-inputs.md                       多 Agent 输入包：SOTA 方法/拓扑/实验
+  agentic_onboarding_capability_arena_design_zh_v1_1.html Capability Arena 中文研究与设计 v1.1
   agentic_onboarding_capability_arena_design_v1_1.html  Capability Arena 英文研究与设计 v1.1
   edge-ai-technology-research.md                        2026 端侧 AI 与 Agentic 前沿调研
   infrastructure-reference-architecture.md
