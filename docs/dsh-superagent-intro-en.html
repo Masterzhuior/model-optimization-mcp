@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-superagent Explained · A Proactive AI Teammate Living in Your Repo</title>
+<style>
+  :root{
+    --bg:#0a0e16; --bg2:#0f1521; --surface:#141b29; --surface2:#1b2435;
+    --border:#243044; --border2:#2e3b52; --text:#e7edf5; --muted:#93a1b5;
+    --accent:#5b9dff; --accent2:#2dd4bf; --warn:#f5a623; --danger:#ff6b6b;
+    --green:#34d399; --purple:#a78bfa; --pink:#f472b6;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%,rgba(91,157,255,.12),transparent 60%),
+               radial-gradient(900px 500px at 0% 0%,rgba(45,212,191,.10),transparent 55%),var(--bg);
+    color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 22px 90px}
+  header.hero{padding:64px 22px 30px;max-width:1120px;margin:0 auto}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;letter-spacing:.5px;color:var(--accent2);
+    border:1px solid var(--border2);background:rgba(45,212,191,.07);padding:6px 12px;border-radius:999px}
+  h1{font-size:clamp(30px,4.4vw,50px);line-height:1.1;margin:18px 0 10px;letter-spacing:-.5px;
+    background:linear-gradient(100deg,#fff 10%,#9fc3ff 60%,#7af0e0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{font-size:18px;color:var(--muted);max-width:800px;margin:6px 0 0}
+  .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+    padding:8px 13px;border-radius:10px;font-size:13px}
+  .chip b{color:var(--text)} .chip span{color:var(--muted)}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2)}
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(10,14,22,.82);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);margin-bottom:28px}
+  nav.toc .inner{max-width:1120px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:10px 18px;scrollbar-width:thin}
+  nav.toc a{white-space:nowrap;color:var(--muted);font-size:13px;padding:7px 11px;border-radius:8px}
+  nav.toc a:hover{background:var(--surface);color:var(--text)}
+  section{margin:0 0 54px;scroll-margin-top:64px}
+  .sec-head{display:flex;align-items:center;gap:12px;margin:0 0 6px}
+  .sec-num{font-size:13px;font-weight:700;color:#0a0e16;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none}
+  h2{font-size:25px;margin:0;letter-spacing:-.3px}
+  h3{font-size:17px;margin:22px 0 8px}
+  p{color:#cbd5e1;margin:10px 0}
+  .muted{color:var(--muted)}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--border);
+    border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+  .card h4{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .card p{font-size:13.5px;margin:0;color:var(--muted)}
+  .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;font-size:15px;
+    background:rgba(91,157,255,.13);border:1px solid rgba(91,157,255,.3)}
+  .callout{border-left:3px solid var(--accent);background:rgba(91,157,255,.06);padding:14px 16px;border-radius:0 12px 12px 0;margin:16px 0}
+  .callout .lab{font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase;margin-bottom:4px}
+  .callout.plain{border-left-color:var(--accent2);background:rgba(45,212,191,.06)}
+  .callout.plain .lab{color:var(--accent2)}
+  .callout.warn{border-left-color:var(--warn);background:rgba(245,166,35,.06)}
+  .callout.warn .lab{color:var(--warn)}
+  .banner{border:1px solid var(--warn);background:linear-gradient(180deg,rgba(245,166,35,.12),rgba(245,166,35,.04));
+    border-radius:14px;padding:16px 18px;margin:22px 0}
+  .banner .bt{font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .banner p{font-size:13.5px;margin:6px 0 0;color:#e9d9bf}
+  .tl{display:flex;gap:10px;align-items:flex-start;background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.25);
+    border-radius:10px;padding:11px 14px;margin:4px 0 14px;font-size:14px;color:#bfeee4}
+  .tl b{color:var(--accent2);flex:none}
+  .pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:8px 0}
+  .node{flex:1 1 150px;min-width:130px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;
+    padding:14px;position:relative}
+  .node .t{font-weight:700;font-size:14px}
+  .node .d{font-size:12px;color:var(--muted);margin-top:4px}
+  .node.acc{background:linear-gradient(180deg,rgba(91,157,255,.18),var(--surface2));border-color:var(--accent)}
+  .node.tok{background:linear-gradient(180deg,rgba(45,212,191,.16),var(--surface2));border-color:var(--accent2)}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px;padding:0 6px;flex:none}
+  @media(max-width:820px){.arrow{transform:rotate(90deg);padding:6px 0}}
+  .loop{margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px}
+  td b{color:var(--text)}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border2);color:var(--muted)}
+  .tag.g{color:var(--green);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08)}
+  .tag.b{color:var(--accent);border-color:rgba(91,157,255,.4);background:rgba(91,157,255,.08)}
+  .tag.y{color:var(--warn);border-color:rgba(245,166,35,.4);background:rgba(245,166,35,.08)}
+  .tag.r{color:var(--danger);border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.08)}
+  .tag.p{color:var(--purple);border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.08)}
+  .ladder{display:flex;flex-direction:column;gap:0;border-left:3px solid var(--border2);margin-left:8px}
+  .step{position:relative;padding:12px 0 12px 26px;margin-left:2px}
+  .step::before{content:"";position:absolute;left:-9px;top:18px;width:14px;height:14px;border-radius:50%;
+    background:var(--surface);border:3px solid var(--muted)}
+  .step.p::before{border-color:var(--danger)}
+  .step.w::before{border-color:var(--accent)}
+  .step.id::before{border-color:var(--accent2)}
+  .step .st{font-weight:700;font-size:14px}
+  .step .sd{font-size:12.5px;color:var(--muted)}
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .mode{border:1px solid var(--border2);border-radius:12px;padding:16px;background:var(--surface)}
+  .mode .mh{font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .led{width:10px;height:10px;border-radius:50%}
+  .mode p{font-size:13px;margin:0}
+  .fig{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--border);border-radius:14px;
+    padding:18px;box-shadow:var(--shadow);overflow:auto}
+  .fig figcaption{color:var(--muted);font-size:12.5px;margin-top:10px;text-align:center}
+  svg{display:block;max-width:100%;height:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:10px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .code{margin:14px 0;border:1px solid var(--border2);border-radius:10px;overflow:hidden;background:#0b1220}
+  .code .cap{font-size:11.5px;color:var(--muted);padding:8px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)}
+  .code pre{margin:0;padding:14px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12.5px;line-height:1.55;color:#cdd7e6}
+  .code .cm{color:#5f7e8c}.code .ky{color:#7fd1ff}.code .st{color:#9fe0b0}
+  footer{border-top:1px solid var(--border);padding-top:26px;color:var(--muted);font-size:13px}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.two{grid-template-columns:1fr}.modes{grid-template-columns:1fr}}
+  .hl{color:var(--accent2);font-weight:600}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface2);border:1px solid var(--border2);
+    padding:1px 7px;border-radius:6px;font-size:12.5px;color:#cbd5e1}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="kicker">● DeepSeek research prototype · not an official product</div>
+  <h1>dsh-superagent</h1>
+  <div class="subtitle">A <b>proactive coding agent for a single GitHub repository</b>, shipped as a bundle for DeepSeek Harness. It listens to GitHub (and optionally Feishu); when an allowed person asks, it opens a work item, does the work in its own session and directory, and answers in the original conversation — e.g. with a pull request. Its whole creed fits one line: <span class="hl">take as little human attention as possible, give as much value as possible.</span></div>
+  <div class="meta">
+    <div class="chip"><span class="dot"></span><b>Language</b> <span>TypeScript</span></div>
+    <div class="chip"><span class="dot"></span><b>Runtime</b> <span>Node 22.19+ / 24+</span></div>
+    <div class="chip"><span class="dot"></span><b>Host</b> <span>DeepSeek Harness plugin</span></div>
+    <div class="chip"><span class="dot"></span><b>License</b> <span>MIT</span></div>
+    <div class="chip"><span class="dot"></span><b>First commit</b> <span>2026-10-31</span></div>
+    <div class="chip"><span class="dot"></span><b>Repo</b> <span>deepseek-ai/dsh-superagent-prototype</span></div>
+  </div>
+
+  <div class="banner">
+    <div class="bt">⚠ Read this boundary first: implemented vs the paper's "future directions"</div>
+    <p>The design described in this repo's docs — domain model, authorization, execution, architecture, web panel — is <b>what the prototype actually implements</b>, and is fair to read and evaluate. But the README states plainly: this version was adapted for publication, so it is <b>not identical</b> to the internal version, nor to the implementation in the paper <i>Exploring Super-agent Design</i>; some designs discussed in the paper are future directions and are <b>not implemented in this prototype</b>. So: what follows explains "what this prototype does," not "what DeepSeek's internal production version or the full paper blueprint does." Which parts are unimplemented is subject to the repo's latest state.</p>
+  </div>
+</header>
+
+<nav class="toc"><div class="inner">
+  <a href="#s1">① In one line</a>
+  <a href="#s2">② Philosophy</a>
+  <a href="#s3">③ Domain model</a>
+  <a href="#s4">④ Authorization</a>
+  <a href="#s5">⑤ Execution</a>
+  <a href="#s6">⑥ Architecture</a>
+  <a href="#s7">⑦ Web panel</a>
+  <a href="#s8">⑧ Tech stack</a>
+  <a href="#s9">⑨ Quick start</a>
+  <a href="#s10">⑩ Caveats</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- 1 -->
+<section id="s1">
+  <div class="sec-head"><div class="sec-num">1</div><h2>What is it, in one line?</h2></div>
+  <p>Think of it as <b>"an outsourced teammate who lives in your repo and shows up when called."</b> Someone on the allow-list comments <span class="kbd">@agent fix this bug</span> on an issue; the agent checks out code in its own directory, changes it, verifies it, then pushes a PR right back into that same issue. It mostly leaves you alone in between — until it needs your decision, or the work is done.</p>
+
+  <div class="pipe">
+    <div class="node tok"><div class="t">Source</div><div class="d">GitHub events / Feishu</div></div>
+    <div class="arrow">→</div>
+    <div class="node"><div class="t">Trigger</div><div class="d">one immutable event</div></div>
+    <div class="arrow">→</div>
+    <div class="node acc"><div class="t">Eval</div><div class="d">policy gate + model</div></div>
+    <div class="arrow">→</div>
+    <div class="node"><div class="t">Ticket</div><div class="d">authorized unit of work</div></div>
+    <div class="arrow">→</div>
+    <div class="node tok"><div class="t">Executor</div><div class="d">own Session + dir</div></div>
+    <div class="arrow">→</div>
+    <div class="node acc"><div class="t">Output</div><div class="d">PR / reply / comment</div></div>
+  </div>
+  <div class="loop">
+    <svg viewBox="0 0 900 70" role="img" aria-label="Human loop">
+      <defs><marker id="lp" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#a78bfa"/></marker></defs>
+      <path d="M860,16 C880,40 880,52 840,56 C520,70 360,70 130,56 C70,50 60,40 70,22" fill="none" stroke="#a78bfa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#lp)"/>
+      <text x="450" y="42" fill="#c4b1ff" font-size="13" text-anchor="middle">↺ Human: starts the request in the original conversation, result returns there; works unattended unless a hand-off is needed</text>
+    </svg>
+  </div>
+
+  <h3>How is it different from a normal coding agent? (the table to read first)</h3>
+  <table>
+    <thead><tr><th>Aspect</th><th>Normal coding agent (Claude Code / Cursor / classic CI bot)</th><th>dsh-superagent</th></tr></thead>
+    <tbody>
+      <tr><td><b>Trigger</b></td><td>You open a session / run a command by hand</td><td>Listens to repo events, acts only when @-mentioned (event-driven)</td></tr>
+      <tr><td><b>Authorization</b></td><td>Permission = you; do anything locally</td><td>No work without a Mandate; allow-list + rules + strength triple gate</td></tr>
+      <tr><td><b>Autonomy</b></td><td>Single-turn; you push, it moves one step</td><td>Opens PRs, follows CI/review, resumes after restart</td></tr>
+      <tr><td><b>Noise</b></td><td>You ask, it answers</td><td>Speaks only when you must act or can use a result; quiet by default</td></tr>
+      <tr><td><b>Deliverable</b></td><td>A snippet of code / a suggestion</td><td>A result back in the original conversation (PR / comment), fully auditable</td></tr>
+      <tr><td><b>Focus</b></td><td>Maximize capability</td><td>Attention economy: value ≥ attention cost</td></tr>
+      <tr><td><b>Fit</b></td><td>Personal, on-demand</td><td>Team-grade, long-resident "contractor" for one repo</td></tr>
+    </tbody>
+  </table>
+
+  <h3>One full request, end to end</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img" aria-label="Request to PR sequence">
+      <defs>
+        <marker id="rt" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5b9dff"/></marker>
+        <marker id="lt" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2dd4bf"/></marker>
+      </defs>
+      <g font-size="11.5" fill="#cdd7e6" text-anchor="middle">
+        <rect x="40" y="16" width="60" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="70" y="33">Human</text>
+        <rect x="160" y="16" width="60" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="190" y="33">Source</text>
+        <rect x="278" y="16" width="64" height="26" rx="6" fill="#16263a" stroke="#5b9dff"/><text x="310" y="33">Main</text>
+        <rect x="402" y="16" width="56" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="430" y="33">Eval</text>
+        <rect x="522" y="16" width="56" height="26" rx="6" fill="#16263a" stroke="#2dd4bf"/><text x="550" y="33">Ticket</text>
+        <rect x="636" y="16" width="68" height="26" rx="6" fill="#1b2435" stroke="#a78bfa"/><text x="670" y="33">Worker</text>
+        <rect x="762" y="16" width="56" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="790" y="33">Repo</text>
+      </g>
+      <g stroke="#33425c" stroke-width="1" stroke-dasharray="3 4">
+        <line x1="70" y1="44" x2="70" y2="372"/><line x1="190" y1="44" x2="190" y2="372"/>
+        <line x1="310" y1="44" x2="310" y2="372"/><line x1="430" y1="44" x2="430" y2="372"/>
+        <line x1="550" y1="44" x2="550" y2="372"/><line x1="670" y1="44" x2="670" y2="372"/>
+        <line x1="790" y1="44" x2="790" y2="372"/>
+      </g>
+      <g font-size="10" fill="#aeb9c9">
+        <line x1="70" y1="80" x2="190" y2="80" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="128" y="75">@agent request</text>
+        <line x1="190" y1="110" x2="310" y2="110" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="248" y="105">Trigger event</text>
+        <line x1="310" y1="140" x2="430" y2="140" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="368" y="135">eval batch</text>
+        <line x1="430" y1="170" x2="310" y2="170" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="366" y="165">accept + Mandate</text>
+        <line x1="310" y1="200" x2="550" y2="200" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="430" y="195">create Ticket</text>
+        <line x1="310" y1="230" x2="670" y2="230" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="490" y="225">Assignment</text>
+        <line x1="670" y1="260" x2="790" y2="260" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="728" y="255">open PR / edit</text>
+        <line x1="790" y1="290" x2="670" y2="290" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="728" y="285">CI / review</text>
+        <line x1="670" y1="320" x2="310" y2="320" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="490" y="315">ready report</text>
+        <line x1="310" y1="345" x2="190" y2="345" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="246" y="340">channel reply (PR)</text>
+        <line x1="190" y1="368" x2="70" y2="368" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="128" y="363">result to thread</text>
+      </g>
+      <text x="70" y="392" fill="#7f8ea6" font-size="10.5">→ request/dispatch (blue)</text>
+      <text x="210" y="392" fill="#7f8ea6" font-size="10.5">← report/reply (teal)</text>
+    </svg>
+    <figcaption>Full chain from @-mention to a PR back in the thread: the Main session only routes; the Worker does the real work.</figcaption>
+  </div>
+
+  <div class="callout plain">
+    <div class="lab">Plain English</div>
+    A traditional agent is a "Q&A machine"; an agent that can act for a whole team can also "generate noise for a whole team." dsh-superagent is "hand it a task, it works on its own and delivers the result, without chatter in between." And it only responds to <b>authorized people</b> and only does work <b>within an authorized scope</b> — not anyone can command it, and it won't freelance.
+  </div>
+
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><div class="ic">📡</div><h4>Listens, doesn't nag</h4><p>Runs as a DeepSeek Harness bundle, listening to GitHub (Feishu optional). Event-driven, not something you trigger by hand.</p></div>
+    <div class="card"><div class="ic">🎫</div><h4>Every ticket is authorized</h4><p>No work starts without a Mandate. Authorization comes from "an allow-listed person asks" or "a rule the team wrote."</p></div>
+    <div class="card"><div class="ic">🤫</div><h4>Speaks only at key moments</h4><p>Confirms once before big work; stays quiet while working; speaks again when a result is ready, a decision is needed, or it can't finish.</p></div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <div class="sec-head"><div class="sec-num">2</div><h2>Core philosophy: least attention, most value</h2></div>
+  <div class="tl"><b>30s:</b> Score every component by how much attention it costs you; cut it if the math doesn't work.</div>
+  <p>Every part of the project is scored by <b>how much attention it costs you</b>. A message, a notification, a question, a setting, a panel element, a paragraph of docs — each must give more value than the attention it consumes, or it is removed. That is the design's master rule.</p>
+
+  <div class="fig" style="margin-top:14px">
+    <svg viewBox="0 0 760 230" role="img" aria-label="Attention balance">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#5b9dff"/><stop offset="1" stop-color="#2dd4bf"/>
+        </linearGradient>
+      </defs>
+      <line x1="120" y1="70" x2="640" y2="70" stroke="url(#g1)" stroke-width="6" stroke-linecap="round"/>
+      <polygon points="380,55 392,86 368,86" fill="#cdd7e6"/>
+      <line x1="380" y1="86" x2="380" y2="190" stroke="#5a6b85" stroke-width="5"/>
+      <rect x="350" y="190" width="60" height="14" rx="4" fill="#5a6b85"/>
+      <line x1="120" y1="70" x2="120" y2="110" stroke="#5a6b85" stroke-width="3"/>
+      <path d="M70 110 q50 40 100 0 Z" fill="rgba(255,107,107,.18)" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="120" y="138" fill="#ff8a8a" font-size="13" text-anchor="middle" font-weight="700">Attention cost</text>
+      <text x="120" y="156" fill="#93a1b5" font-size="11" text-anchor="middle">msg / notice / setting / panel</text>
+      <line x1="640" y1="70" x2="640" y2="110" stroke="#5a6b85" stroke-width="3"/>
+      <path d="M590 110 q50 40 100 0 Z" fill="rgba(52,211,153,.18)" stroke="#34d399" stroke-width="2"/>
+      <text x="640" y="138" fill="#56e0b0" font-size="13" text-anchor="middle" font-weight="700">Value created</text>
+      <text x="640" y="156" fill="#93a1b5" font-size="11" text-anchor="middle">usable result / needed decision</text>
+      <circle cx="380" cy="40" r="16" fill="url(#g1)"/>
+      <text x="380" y="45" fill="#06121f" font-size="14" text-anchor="middle" font-weight="800">⚖</text>
+    </svg>
+    <figcaption>Balance rule: every component must satisfy "value ≥ attention cost," else it is cut.</figcaption>
+  </div>
+
+  <h3>Rules it holds the agent to</h3>
+  <div class="grid g2">
+    <div class="card"><h4>🚦 Acts only when asked, or a written rule allows</h4><p>A request must address the agent directly and come from an allowed person. Unrequested work needs a team rule, and starts in a mode that only records what it would have done.</p></div>
+    <div class="card"><h4>🤐 Speaks only when a person must act or can use a result</h4><p>Confirms a request once, naming what it will do; stays quiet while working; writes again when a result is ready, a decision is needed, or it can't finish.</p></div>
+    <div class="card"><h4>❓ One concrete question at a time</h4><p>Asks in a structured form so the question reaches the person instead of being buried in a long report.</p></div>
+    <div class="card"><h4>🛑 Stops by impact, not by effort</h4><p>A local change goes as far as a reviewable result. A change needing a design decision stops with a clear question.</p></div>
+    <div class="card"><h4>📋 Reports honestly</h4><p>A draft is marked unfinished, a failure is reported as a failure, and a limit is never bypassed just to avoid asking.</p></div>
+    <div class="card"><h4>🧩 Few concepts, few settings</h4><p>A business need becomes an attribute of a domain concept, or a prompt the agent follows; a good default replaces a setting.</p></div>
+  </div>
+
+  <div class="callout warn">
+    <div class="lab">Responsibility reminder for operators</div>
+    The agent comments, opens PRs and messages people under accounts your team sees every day — every message costs your colleagues' attention, and <b>you are responsible for it</b>. Advice: ① start narrow (short allow-list + proactive work recorded only); ② when it's noisy, tighten the prompts or pause — don't add more messages to explain the noise; ③ don't use it to produce volume (mass PRs, broadcasts); ④ read, correct and own what it posts in your name.
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <div class="sec-head"><div class="sec-num">3</div><h2>Domain model: minimal but self-consistent</h2></div>
+  <div class="tl"><b>30s:</b> Just five concepts (Source / Trigger / Thread / Eval / Ticket) explain the whole collaboration; business needs are merely their attributes.</div>
+  <p>The code, tools, panel and docs all use the same vocabulary. Following the philosophy, the model holds <b>only the concepts the work needs</b>; a business need becomes an attribute of a concept, not a new concept. Here is the core flow: a Source produces Triggers → Triggers aggregate into Threads → Eval decides whether to open new work → a Ticket is handed to an Executor → results return to the Source through a Channel.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 900 300" role="img" aria-label="Domain model flow">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7f8ea6"/></marker>
+        <style>
+          .b{fill:#1b2435;stroke:#2e3b52;stroke-width:1.5}
+          .bt{fill:#e7edf5;font-size:13px;font-weight:700}
+          .bd{fill:#93a1b5;font-size:10.5px}
+          .lbl{fill:#9fb0c6;font-size:10.5px}
+        </style>
+      </defs>
+      <rect class="b" x="20" y="120" width="120" height="58" rx="10"/>
+      <text class="bt" x="80" y="146" text-anchor="middle">Source</text>
+      <text class="bd" x="80" y="164" text-anchor="middle">event stream</text>
+      <rect class="b" x="200" y="30" width="120" height="58" rx="10"/>
+      <text class="bt" x="260" y="56" text-anchor="middle">Thread</text>
+      <text class="bd" x="260" y="74" text-anchor="middle">time-ordered</text>
+      <rect class="b" x="200" y="200" width="120" height="58" rx="10"/>
+      <text class="bt" x="260" y="226" text-anchor="middle">Eval</text>
+      <text class="bd" x="260" y="244" text-anchor="middle">assessment</text>
+      <rect class="b" x="410" y="120" width="120" height="58" rx="10" style="fill:#16263a;stroke:#2dd4bf"/>
+      <text class="bt" x="470" y="146" text-anchor="middle">Ticket</text>
+      <text class="bd" x="470" y="164" text-anchor="middle">authorized work</text>
+      <rect class="b" x="620" y="120" width="120" height="58" rx="10"/>
+      <text class="bt" x="680" y="146" text-anchor="middle">Executor</text>
+      <text class="bd" x="680" y="164" text-anchor="middle">runs the work</text>
+      <rect class="b" x="620" y="220" width="120" height="48" rx="10" style="fill:#16263a;stroke:#5b9dff"/>
+      <text class="bt" x="680" y="246" text-anchor="middle" style="font-size:12">Channel</text>
+      <rect class="b" x="410" y="20" width="120" height="44" rx="10" style="stroke:#a78bfa"/>
+      <text class="bt" x="470" y="47" text-anchor="middle" style="font-size:12">Policy</text>
+      <line x1="140" y1="150" x2="195" y2="70" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="150" y="100" transform="rotate(-32 150 100)">Trigger</text>
+      <line x1="320" y1="60" x2="405" y2="125" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="345" y="92">batch</text>
+      <line x1="320" y1="230" x2="405" y2="160" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="345" y="205">accept / stop</text>
+      <line x1="530" y1="149" x2="615" y2="149" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="560" y="142">Assignment</text>
+      <line x1="680" y1="178" x2="680" y2="218" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="690" y="200">Channel</text>
+      <line x1="530" y1="149" x2="615" y2="245" stroke="#5b9dff" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+      <text class="lbl" x="560" y="215" fill="#9db8ff">reply to Source</text>
+      <line x1="470" y1="64" x2="470" y2="118" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+      <text class="lbl" x="482" y="92" fill="#c4b1ff">notice</text>
+    </svg>
+    <figcaption>Core flow: Source →(Trigger)→ Thread →(batch)→ Eval →(accept)→ Ticket →(Assignment)→ Executor →(Channel)→ Source</figcaption>
+  </div>
+
+  <h3>Five "core concepts" + what they guard</h3>
+  <table>
+    <thead><tr><th>Concept</th><th>What it is</th><th>Rules it keeps / why it exists</th></tr></thead>
+    <tbody>
+      <tr><td><b>Source</b></td><td>An event stream. A kind (reusable impl) + one instance (config)</td><td>Holds its read position and bot identity; translates platform events into Triggers and Threads; drops its own messages and unrelated triggers. <span class="tag b">no replay on restart</span></td></tr>
+      <tr><td><b>Trigger</b></td><td>One immutable event with the Source's own metadata (e.g. actor)</td><td>Belongs to one or more Threads; accepting the same trigger twice makes one Ticket. <span class="tag g">unit of audit & idempotence</span></td></tr>
+      <tr><td><b>Thread</b></td><td>Triggers in time order</td><td>At most one Eval runs on it at a time; may hold several Tickets; holds Subscriptions, the running Eval, Decision history. <span class="tag p">consistent view for Eval</span></td></tr>
+      <tr><td><b>Eval</b></td><td>Judgement on a batch of Triggers, two layers: gate + assessment</td><td>Stateless. Inputs a trigger batch / thread snapshot / tickets / policy; outputs a Decision. <span class="tag y">decides if work starts</span></td></tr>
+      <tr><td><b>Ticket</b></td><td>A unit of authorized work</td><td>Only Eval creates one; references a Mandate; holds Channels and Inputs; defines its own state (not the Executor's). <span class="tag b">owns execution & reports</span></td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Supporting concepts: <b>Mandate</b> (what an accept grants — why and how far), <b>Assignment</b> (binding a Ticket to one Executor instance), <b>Subscription</b> (many-to-many Ticket↔Thread), <b>Channel</b> (the write side of a Thread), <b>Correlation</b> (adds context only, never routes).</p>
+
+  <div class="callout plain">
+    <div class="lab">Plain English</div>
+    A "person" is not a domain concept — just metadata on a Trigger. The allow-list is a Source's part of the Policy; cross-platform account mapping is prompt text the agents read. The design deliberately avoids making "person," "membership," or "cross-Source mapping" into entities, keeping the model tiny.
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <div class="sec-head"><div class="sec-num">4</div><h2>Authorization: who can make it work, and how far?</h2></div>
+  <div class="tl"><b>30s:</b> No work without a Mandate; allow-list, rules and strength triple-gate it — and chat content can never change permissions.</div>
+  <p>A Trigger enters the system by <b>two paths</b>: either through Eval (deciding whether to start new work) or through Subscription (continuing existing work). The host enforces allow-lists, rules and Mandates; messages and quoted docs are inputs to a decision, <b>never able to change permissions</b>.</p>
+
+  <div class="two">
+    <div class="card" style="border-color:var(--accent)">
+      <h4>🆕 Path A: new work (via Eval)</h4>
+      <p style="color:#cbd5e1">The Source records whether a message addresses the agent (<b>mention</b> = @, <b>direct</b> = DM). The gate checks sender + that Source's Policy:</p>
+      <ul style="font-size:13px;color:var(--muted);margin:6px 0 0;padding-left:18px">
+        <li>An allowed person who @s it → <span class="tag b">explicit request</span></li>
+        <li>A follow-up on a Thread with Tickets → follow-up rules apply</li>
+        <li>Anyone else → the admission table decides if it becomes a candidate</li>
+        <li>A bot on the bot list → only an <span class="tag p">inferred candidate</span>, never explicit</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:var(--accent2)">
+      <h4>🔁 Path B: continuing work (via Subscription)</h4>
+      <p style="color:#cbd5e1">Every message on a subscribed Thread (including bots and CI) is delivered to its Tickets as context, <b>bypassing the gate and granting no new authority</b>. The Ticket stays limited by its Mandate.</p>
+      <ul style="font-size:13px;color:var(--muted);margin:6px 0 0;padding-left:18px">
+        <li>A person's follow-up on "its own Thread" → the Executor decides</li>
+        <li>The Executor handles in-scope work, hands back what's out of scope</li>
+        <li>Bots/CI never wake an ended Ticket</li>
+        <li>Mandate is withdrawn only by a person's stop or failed revalidation</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Three "strengths"</h3>
+  <table>
+    <thead><tr><th>Strength</th><th>Typical cases</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag b">explicit</span></td><td>A listed person @s it / follows up on a Thread that has a Ticket / a cell of the admission table set to explicit</td></tr>
+      <tr><td><span class="tag p">inferred</span></td><td>An unlisted person follows up on a Thread with a Ticket / a table cell set to inferred candidate / a bot on the bot list speaks</td></tr>
+      <tr><td><span class="tag r">not admitted</span></td><td>Any other bot's message / anything the admission table ignores / any inferred case while mode is <span class="kbd">off</span></td></tr>
+    </tbody>
+  </table>
+
+  <h3>Accept mode: a three-step "proactiveness" switch</h3>
+  <div class="modes">
+    <div class="mode"><div class="mh"><span class="led" style="background:#ff6b6b"></span>off</div><p>No inferred candidate is admitted (unaddressed messages, bot messages, unlisted follow-ups). <b>Explicit requests always work.</b></p></div>
+    <div class="mode" style="border-color:var(--warn)"><div class="mh"><span class="led" style="background:#f5a623"></span>observe (default)</div><p>Inferred candidates are assessed; a positive assessment is recorded as "would accept" and ignored — <b>not actually worked</b>. Use this first to see what it would do.</p></div>
+    <div class="mode" style="border-color:var(--green)"><div class="mh"><span class="led" style="background:#34d399"></span>auto</div><p>A positively-assessed inferred candidate is <b>accepted directly</b>. Switch here only after reviewing the recorded Decisions.</p></div>
+  </div>
+
+  <div class="callout warn">
+    <div class="lab">Recommended starting posture</div>
+    Begin in <span class="kbd">observe</span>; after reviewing the recorded Decisions, switch to <span class="kbd">auto</span>. Every proactive accept needs at least one matching rule; a rule describes a kind of proactive work, and its process/communication requirements override that Ticket's defaults (e.g. a rule can name the required reviewer before merge).
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <div class="sec-head"><div class="sec-num">5</div><h2>Execution: how a ticket gets done</h2></div>
+  <div class="tl"><b>30s:</b> Each ticket gets its own Session + directory, opens PRs, follows review/CI itself, and pauses to wait for you if blocked — and resumes after a restart.</div>
+  <p>Each Ticket gets an Executor Session named <span class="kbd">worker-&lt;ticket id&gt;</span> and a directory named after the Ticket's short name. The Executor runs commands without approval as the operator's OS user; the worker preset moves foreground shells to background jobs after 5 seconds, so a long command won't block it from receiving new messages.</p>
+
+  <h3>Ticket stages (top to bottom, first match wins)</h3>
+  <div class="ladder">
+    <div class="step p"><div class="st">Input undelivered · person</div><div class="sd">Delivering an Input to the Executor Session failed; retried after 2s, then doubling up to 1 min.</div></div>
+    <div class="step p"><div class="st">Awaiting answer · person</div><div class="sd">The Ticket has an Attention — the Executor raised one concrete question via <span class="kbd">human_action</span>.</div></div>
+    <div class="step p"><div class="st">Awaiting review · person</div><div class="sd">The latest Report is <span class="kbd">ready</span> — usually meaning "opened a PR, waiting on you."</div></div>
+    <div class="step p"><div class="st">Blocked · Failed · person</div><div class="sd">Latest Report is blocked/failed and no human message since. A new human message releases it back to the Executor.</div></div>
+    <div class="step w"><div class="st">Queued · working</div><div class="sd">No Assignment, or a pending one.</div></div>
+    <div class="step id"><div class="st">Waiting for a Trigger · idle</div><div class="sd">Latest Report is <span class="kbd">waiting</span>, or the Assignment ended — turn finished with no open question, waiting for the next trigger.</div></div>
+    <div class="step w"><div class="st">Working · working</div><div class="sd">Everything else — actively working.</div></div>
+  </div>
+  <p class="muted" style="font-size:13px">A <b>person</b> stage means it can't continue without human input; a new human message on a subscribed Thread releases a blocked/failed Ticket to its Executor.</p>
+
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><div class="ic">🗂️</div><h4>One directory per ticket</h4><p>Before the first Assignment, a prepare command (default <span class="kbd">git worktree</span>) runs once to build a checkout; a PR belongs to the Ticket when its branch's last path segment matches the Ticket's short name.</p></div>
+    <div class="card"><div class="ic">⏱️</div><h4>Worker slots</h4><p>A Ticket holds a worker slot from launch; if background jobs/subagents are still running at turn end, it keeps the slot and isn't reported as waiting. Background work has at most 30 minutes.</p></div>
+    <div class="card"><div class="ic">🔀</div><h4>Merge with restraint</h4><p>By default it <b>never</b> enables auto-merge as the agent account; Delivery requirements must name another account's CLI for merging. Auto-merge only if: ready + required approvals cover head commit + additions+deletions &lt; 200 lines.</p></div>
+  </div>
+
+  <h3>Default auto-merge rule (Delivery requirements)</h3>
+  <div class="callout">
+    <div class="lab">Rule highlights (paraphrased from the docs, not verbatim)</div>
+    <p style="color:#cbd5e1;font-size:13.5px;margin:0">① By default it <b>never</b> enables auto-merge as the agent account — GitHub attributes the merge to whoever enabled it; to merge, Delivery requirements must name <b>another account's CLI</b>. ② Auto-merge is allowed only when the PR is for this Ticket, is <span class="kbd">ready</span>, required approvals cover the head commit, and <b>additions+deletions &lt; 200 lines</b>. ③ Before pushing another revision, the Executor withdraws auto-merge. ④ With no merge CLI named, drop the auto-merge paragraph and require manual merge.</p>
+  </div>
+
+  <div class="callout plain">
+    <div class="lab">Plain English</div>
+    It's not "spawn a thread and finish." It opens a PR, then tracks that PR's reviews / CI / merge; the Ticket ends only when all its PRs are closed. Human interjections are picked up; out-of-scope ones are handed back; if it can't finish or needs your call, it stops and waits. After a restart/crash, unread messages go back to Eval while read content is preserved — so it "resumes" rather than "runs wild from scratch."
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <div class="sec-head"><div class="sec-num">6</div><h2>Architecture: strict one-way deps + single writer</h2></div>
+  <div class="tl"><b>30s:</b> Strict one-way dependencies, all domain writes go through the Engine, side effects are stored-then-done — so it's easy to reason about and to recover.</div>
+  <p>Core discipline: <b>src/core touches no I/O and imports nothing external</b>; <b>src/sources does not import src/app</b>; the panel imports types only. All domain writes go through the <b>Engine</b> (the single writer); external side-effects are queued (Effects/Outbox) and executed after the transaction commits. The whole thing runs injected as a DeepSeek Harness bundle.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 900 440" role="img" aria-label="System architecture">
+      <defs>
+        <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6f8099"/></marker>
+        <style>
+          .c{fill:#141b29;stroke:#2e3b52;stroke-width:1.4}
+          .ct{fill:#e7edf5;font-size:13.5px;font-weight:700}
+          .cd{fill:#8b97a8;font-size:10.5px}
+          .gl{fill:#7f8ea6;font-size:10.5px}
+          .pill{fill:#1b2435;stroke:#2e3b52;stroke-width:1.2}
+          .pt{fill:#cdd7e6;font-size:11px}
+        </style>
+      </defs>
+      <g>
+        <rect class="pill" x="40" y="104" width="150" height="34" rx="8"/><text class="pt" x="115" y="125" text-anchor="middle">Intake</text>
+        <rect class="pill" x="206" y="104" width="150" height="34" rx="8"/><text class="pt" x="281" y="125" text-anchor="middle">Evals</text>
+        <rect class="pill" x="372" y="104" width="150" height="34" rx="8"/><text class="pt" x="447" y="125" text-anchor="middle">Tickets</text>
+        <rect class="pill" x="538" y="104" width="150" height="34" rx="8"/><text class="pt" x="613" y="125" text-anchor="middle">Assignments</text>
+        <rect class="pill" x="704" y="104" width="150" height="34" rx="8"/><text class="pt" x="779" y="125" text-anchor="middle">Replies</text>
+      </g>
+      <rect class="c" x="350" y="24" width="200" height="44" rx="10" style="stroke:#5b9dff"/>
+      <text class="ct" x="450" y="46" text-anchor="middle">Runtime · composition root</text>
+      <text class="cd" x="450" y="60" text-anchor="middle">build app / start / shutdown (no domain rules)</text>
+      <rect class="c" x="320" y="215" width="260" height="66" rx="10" style="fill:#16263a;stroke:#2dd4bf"/>
+      <text class="ct" x="450" y="240" text-anchor="middle">Engine · single writer</text>
+      <text class="cd" x="450" y="258" text-anchor="middle">Triggers / Threads / Decisions</text>
+      <text class="cd" x="450" y="272" text-anchor="middle">Tickets / Assignments</text>
+      <rect class="c" x="30" y="158" width="240" height="86" rx="10" style="stroke:#34d399"/>
+      <text class="ct" x="150" y="188" text-anchor="middle">Sources plugins</text>
+      <text class="cd" x="150" y="206" text-anchor="middle">GitHub / Feishu (off by default)</text>
+      <text class="cd" x="150" y="222" text-anchor="middle">payload → Trigger/Thread</text>
+      <text class="cd" x="150" y="236" text-anchor="middle">polling · channel send</text>
+      <rect class="c" x="630" y="158" width="240" height="86" rx="10" style="stroke:#a78bfa"/>
+      <text class="ct" x="750" y="188" text-anchor="middle">DshExecutor</text>
+      <text class="cd" x="750" y="206" text-anchor="middle">one Session + dir per Ticket</text>
+      <text class="cd" x="750" y="222" text-anchor="middle">launch / delivery</text>
+      <text class="cd" x="750" y="236" text-anchor="middle">WorkerSlots</text>
+      <rect class="c" x="330" y="360" width="240" height="58" rx="10"/>
+      <text class="ct" x="450" y="382" text-anchor="middle">Store · SQLite</text>
+      <text class="cd" x="450" y="400" text-anchor="middle">orchestrator.sqlite</text>
+      <rect class="c" x="630" y="330" width="240" height="76" rx="10" style="stroke:#f5a623"/>
+      <text class="ct" x="750" y="356" text-anchor="middle">Web Panel · React</text>
+      <text class="cd" x="750" y="374" text-anchor="middle">Overview / Source / Trigger</text>
+      <text class="cd" x="750" y="390" text-anchor="middle">Eval / Execution / Settings</text>
+      <line x1="450" y1="68" x2="450" y2="104" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a2)"/>
+      <line x1="450" y1="138" x2="450" y2="215" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="458" y="180">EngineParts (one-way)</text>
+      <line x1="270" y1="205" x2="318" y2="245" stroke="#34d399" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="92" y="232" fill="#7fe0c8">Triggers / SourceScope</text>
+      <line x1="580" y1="240" x2="628" y2="200" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="588" y="224" fill="#c4b1ff">Executor port</text>
+      <line x1="450" y1="281" x2="450" y2="358" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="392" y="325">Repositories</text>
+      <line x1="575" y1="278" x2="628" y2="346" stroke="#f5a623" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="540" y="320" fill="#f5c97a">Management API</text>
+    </svg>
+    <figcaption>Dependency direction is strictly one-way: Runtime → Engine → EngineParts → ports (Store / Sources / Executor / Panel); all writes converge on the Engine and the Effects/Outbox queue.</figcaption>
+  </div>
+
+  <h3><span class="kbd">cordis.patch.yml</span> injected plugins (real excerpt, trimmed)</h3>
+  <div class="code">
+    <div class="cap">cordis.patch.yml — bundle layer: inserts plugins and agent presets (from the repo)</div>
+<pre><span class="cm"># bundle layer: inserts plugins (no config) and the agent preset each Session runs under</span>
+- insert:
+    - id: dsh-superagent            <span class="cm"># main plugin</span>
+      name: dsh-superagent
+    - id: dsh-superagent-github     <span class="cm"># GitHub source</span>
+      name: dsh-superagent/github-watch
+    - id: dsh-superagent-feishu     <span class="cm"># Feishu source (optional, disabled by default)</span>
+      name: dsh-superagent/feishu-watch
+      disabled: true
+    - id: dsh-superagent-worker-preset   <span class="cm"># preset of every Executor Session</span>
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dsh-superagent-worker
+        name: dsh-superagent worker
+        <span class="cm"># foreground command moves to background after 5s; only work tools</span>
+        plugins: [ persona, agent-instructions, shell, tool-fs,
+                   tool-jobs, skill-filesystem, tool-skill,
+                   compaction, delegation(subagents), tool-todo ]</span></pre>
+  </div>
+
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card"><h4>🧩 cordis patch</h4><p>The patch above injects three plugins (main / github-watch / feishu-watch). When the panel or Harness edits config, the host writes the file in place; most settings apply <b>without restart</b> (a save touching Setup fields restarts).</p></div>
+    <div class="card"><h4>💾 Persistence isolation</h4><p>Only the Store opens a SQLite file; DeepSeek Harness provides Session/process environment, consumed by this system through narrow interfaces (<span class="kbd">SourceHost</span>/<span class="kbd">SessionsHost</span>) with no reverse dependency on its internals.</p></div>
+    <div class="card"><h4>📨 Effects / Outbox</h4><p>Relays/launches/deliveries after a decision are <b>stored first, done after</b>: enqueue → execute on commit, with merge, concurrency limits and exponential-backoff retries. A third consecutive failure is reported as a system problem.</p></div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="s7">
+  <div class="sec-head"><div class="sec-num">7</div><h2>Web panel: only surfaces what needs a human</h2></div>
+  <div class="tl"><b>30s:</b> The panel appears only where a human is needed, and puts the action right at their fingertips; healthy states take no space.</div>
+  <p>Open <b>Superagent</b> in the DeepSeek Harness web sidebar to supervise the agent. The panel prioritizes work that needs a person, then system health and history. It uses domain terms; internal IDs appear only in folded details.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 720 200" role="img" aria-label="Panel three questions">
+      <defs><marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6f8099"/></marker></defs>
+      <rect x="14" y="70" width="190" height="64" rx="12" fill="#16263a" stroke="#2dd4bf"/>
+      <text x="109" y="98" text-anchor="middle" fill="#7fe0c8" font-size="14" font-weight="700">❓ Anything for me now?</text>
+      <text x="109" y="118" text-anchor="middle" fill="#8b97a8" font-size="11">tickets needing action</text>
+      <rect x="265" y="70" width="190" height="64" rx="12" fill="#141b29" stroke="#5b9dff"/>
+      <text x="360" y="98" text-anchor="middle" fill="#9fc3ff" font-size="14" font-weight="700">❓ Is the system healthy?</text>
+      <text x="360" y="118" text-anchor="middle" fill="#8b97a8" font-size="11">problems / 24h activity / load</text>
+      <rect x="516" y="70" width="190" height="64" rx="12" fill="#141b29" stroke="#a78bfa"/>
+      <text x="611" y="98" text-anchor="middle" fill="#c4b1ff" font-size="14" font-weight="700">❓ What's the history?</text>
+      <text x="611" y="118" text-anchor="middle" fill="#8b97a8" font-size="11">Trigger → Eval → Ticket</text>
+      <line x1="204" y1="102" x2="262" y2="102" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a3)"/>
+      <line x1="455" y1="102" x2="513" y2="102" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a3)"/>
+      <text x="360" y="44" text-anchor="middle" fill="#e7edf5" font-size="13" font-weight="700">Opening the panel answers three questions, in order</text>
+    </svg>
+    <figcaption>The panel's entire reason to exist: answer "anything for me? / healthy? / what's the history?" in order.</figcaption>
+  </div>
+
+  <h3>Tabs (ordered along the workflow)</h3>
+  <table>
+    <thead><tr><th>Tab</th><th>Shows</th></tr></thead>
+    <tbody>
+      <tr><td><b>Overview</b></td><td>Tickets needing action, system problems, 24h activity counts, Executor load; each block links to its detail page</td></tr>
+      <tr><td><b>Source</b></td><td>Source state, setup problems, non-zero counts; filtered Triggers and dropped messages share the 24h window</td></tr>
+      <tr><td><b>Trigger</b></td><td>Threads filtered by Subscribed / Evaluating / New in 24h / All; each Thread shows Triggers, Decisions, Subscriptions</td></tr>
+      <tr><td><b>Eval</b></td><td>Decisions with their reason and matched rules</td></tr>
+      <tr><td><b>Execution</b></td><td>Executor state, Pause processing, Tickets filtered by Open/Pending/Working/Waiting/Ended</td></tr>
+      <tr><td><b>Settings</b></td><td>Sources / Eval / Execution / Prompts / Deployment, each group with its save history</td></tr>
+    </tbody>
+  </table>
+  <div class="callout plain">
+    <div class="lab">Panel design — seven principles (condensed)</div>
+    Focus on what matters; precise, mutually-exclusive definitions; one place per concept; use domain terms; honest state (count = length of the linked list); quiet by default (healthy states take no space); consistent controls. In one line: <b>appear only where a human is needed, and put the action right at their fingertips.</b>
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="s8">
+  <div class="sec-head"><div class="sec-num">8</div><h2>Tech stack: a restrained TypeScript engineering</h2></div>
+  <div class="tl"><b>30s:</b> A TypeScript project so restrained it has just two runtime dependencies; all host capability comes from DeepSeek Harness.</div>
+  <div class="grid g2">
+    <div class="card"><h4>⚙️ Language & runtime</h4><p>TypeScript 6 + Node <b>22.19+ / 24+</b>; package manager <b>pnpm 11.7</b>. Only two runtime deps: <span class="kbd">proper-lockfile</span> (file lock) and <span class="kbd">zod 4</span> (validation).</p></div>
+    <div class="card"><h4>🧱 Host & plugins</h4><p>All capability comes from <b>@deepseek-ai/dsh-*</b> peer deps (Harness, Session, Tools, LLM, permission presets, client UI, …), injected via <span class="kbd">cordis</span>.</p></div>
+    <div class="card"><h4>🏗️ Build & test</h4><p><span class="kbd">tsdown</span> bundles, <span class="kbd">vitest 4</span> tests, <span class="kbd">tsc --noEmit</span> typechecks. <span class="kbd">pnpm check</span> = typecheck + test + build in one pass.</p></div>
+    <div class="card"><h4>🖥️ Panel & storage</h4><p>The panel uses <b>React 18</b> (self-drawn controls, no host UI primitives imported); persistence is a single <b>SQLite</b> (<span class="kbd">orchestrator.sqlite</span>), owned exclusively by the Store.</p></div>
+  </div>
+  <div class="legend" style="margin-top:14px">
+    <span><i style="background:#5b9dff"></i>core layer (no I/O)</span>
+    <span><i style="background:#2dd4bf"></i>Engine single writer</span>
+    <span><i style="background:#34d399"></i>Source plugins</span>
+    <span><i style="background:#a78bfa"></i>Executor</span>
+    <span><i style="background:#f5a623"></i>Web Panel</span>
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="s9">
+  <div class="sec-head"><div class="sec-num">9</div><h2>Quick start: let an agent set it up with you</h2></div>
+  <div class="tl"><b>30s:</b> Let an agent set it up with you — one question at a time, full plan before acting, secrets left for you to do by hand.</div>
+  <p>Setup has many steps, so the project has <b>your own coding agent</b> do it with you. Just tell it: <span class="kbd">Read SETUP.md in this repo and set up dsh-superagent with me</span>. It asks one question at a time, shows the full plan once, then installs and configures everything.</p>
+
+  <h3>SETUP "probe" command (run once, keep the result to itself)</h3>
+  <div class="code">
+    <div class="cap">SETUP.md — environment probe before install (verbatim excerpt)</div>
+<pre><span class="cm"># probe: whatever's missing becomes a plan item, not a question</span>
+node -v; pnpm -v; git --version; tmux -V; python3 --version
+gh --version | head -1; dsh --version
+gh api user --jq .login          <span class="cm"># operator's own GitHub login, recommended in Q5</span>
+command -v lark-cli             <span class="cm"># Feishu CLI (optional)</span>
+grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.patch.yml 2>/dev/null</pre>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><div class="ic">1️⃣</div><h4>Probe the environment</h4><p>Runs a one-shot probe: node / pnpm / git / tmux / python3 / gh / dsh versions, plus login checks. Whatever's missing becomes a plan item, not a question.</p></div>
+    <div class="card"><div class="ic">2️⃣</div><h4>Collect answers one at a time</h4><p>Questions follow the workflow: ① Sources (GitHub/Feishu) ② Repository ③ Agent account ④ Allow-list ⑤ checkout/commit identity ⑥ auto-merge? Each offers a recommended answer.</p></div>
+    <div class="card"><div class="ic">3️⃣</div><h4>Plan → execute</h4><p>After collecting, it sends one full plan; only after you confirm does it act: you do account/CLI steps first, then it installs & starts, then saves settings and prompts in order.</p></div>
+  </div>
+
+  <div class="callout">
+    <div class="lab">Prerequisites</div>
+    Needs Node 22.19+/24+, pnpm, git 2.32+, tmux, Python 3.8+, GitHub CLI 2.48+, and a DeepSeek Harness within the package.json range (plus a model provider). Feishu is optional but requires a separate bot app. It never asks for secrets in chat — steps needing your hands are given as copy-paste commands.
+  </div>
+  <p class="muted" style="font-size:13px">To try it: from an allow-listed account, comment <span class="kbd">@&lt;agent-login&gt; &lt;your request&gt;</span> on an issue in the repo; within about a minute a Ticket appears on the Overview.</p>
+</section>
+
+<!-- 10 -->
+<section id="s10">
+  <div class="sec-head"><div class="sec-num">10</div><h2>Caveats & the one-line summary</h2></div>
+  <div class="callout warn">
+    <div class="lab">Read this first</div>
+    ① This is a <b>research prototype for reference only, not an official DeepSeek product</b>. Much of the engineering was done by coding agents; it may contain bugs and inconsistent style/practices — review and adapt before use.<br>
+    ② It was adapted for publication, so it is <b>not identical</b> to the internal version nor to the implementation in the paper <i>Exploring Super-agent Design</i>; some designs discussed there are future directions and are <b>not implemented</b> in this prototype.<br>
+    ③ Licensed <b>MIT</b> — free to use and modify.
+  </div>
+
+  <div class="card" style="border-color:var(--accent2);margin-top:8px">
+    <h4>🧭 What problem does it actually solve?</h4>
+    <p style="color:#cbd5e1;font-size:14px">A traditional agent is a "Q&A machine"; an agent that can act for a whole team can also "generate noise for a whole team." dsh-superagent puts "proactivity" in a cage using a <span class="hl">minimal domain model + strict authorization + attention economics</span>: <span class="hl">it acts only when asked or a rule allows, and speaks only when a person must act or can use a result.</span> It resolves the tension between "runs automatically" and "doesn't bother people" through engineering discipline — and that is exactly why it's worth a careful read.</p>
+  </div>
+
+  <div class="grid g4" style="margin-top:16px">
+    <div class="card" style="text-align:center"><div style="font-size:26px">🎯</div><h4>Minimal concepts</h4><p>Only what the work needs; business needs become attributes or prompts</p></div>
+    <div class="card" style="text-align:center"><div style="font-size:26px">🔐</div><h4>Auth first</h4><p>No work without a Mandate; allow-list / rules / strength triple-gate</p></div>
+    <div class="card" style="text-align:center"><div style="font-size:26px">🤫</div><h4>Attention economy</h4><p>Value ≥ attention cost or it's cut; quiet by default</p></div>
+    <div class="card" style="text-align:center"><div style="font-size:26px">🧱</div><h4>Single writer</h4><p>Strict one-way deps, Engine owns all domain writes — easy to reason about, easy to recover</p></div>
+  </div>
+</section>
+
+<footer>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+    <span class="pill">deepseek-ai/dsh-superagent-prototype</span>
+    <span class="pill">MIT License</span>
+    <span class="pill">TypeScript · Node 22+ · DeepSeek Harness</span>
+    <span class="pill">first commit 2026-10-31</span>
+  </div>
+  This page is an interpretation based on the public README and the <span class="kbd">docs/000–008</span> series — not official documentation. Details may change; defer to the repo. Code excerpts are from the repo's original files, trimmed and annotated.
+  <div style="margin-top:10px"><a href="https://github.com/deepseek-ai/dsh-superagent-prototype">→ View the repository</a> · <a href="https://www.deepseek.com/en/harness/">→ DeepSeek Harness</a></div>
+</footer>
+
+</div>
+</body>
+</html>

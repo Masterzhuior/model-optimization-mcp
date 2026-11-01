@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-superagent 详解 · 一个住在你仓库里的主动式 AI 同事</title>
+<style>
+  :root{
+    --bg:#0a0e16; --bg2:#0f1521; --surface:#141b29; --surface2:#1b2435;
+    --border:#243044; --border2:#2e3b52; --text:#e7edf5; --muted:#93a1b5;
+    --accent:#5b9dff; --accent2:#2dd4bf; --warn:#f5a623; --danger:#ff6b6b;
+    --green:#34d399; --purple:#a78bfa; --pink:#f472b6;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%,rgba(91,157,255,.12),transparent 60%),
+               radial-gradient(900px 500px at 0% 0%,rgba(45,212,191,.10),transparent 55%),var(--bg);
+    color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 22px 90px}
+  header.hero{padding:64px 22px 30px;max-width:1120px;margin:0 auto}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;letter-spacing:.5px;color:var(--accent2);
+    border:1px solid var(--border2);background:rgba(45,212,191,.07);padding:6px 12px;border-radius:999px}
+  h1{font-size:clamp(30px,4.4vw,50px);line-height:1.1;margin:18px 0 10px;letter-spacing:-.5px;
+    background:linear-gradient(100deg,#fff 10%,#9fc3ff 60%,#7af0e0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{font-size:18px;color:var(--muted);max-width:780px;margin:6px 0 0}
+  .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+  .chip{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+    padding:8px 13px;border-radius:10px;font-size:13px}
+  .chip b{color:var(--text)} .chip span{color:var(--muted)}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2)}
+  nav.toc{position:sticky;top:0;z-index:20;background:rgba(10,14,22,.82);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);margin-bottom:28px}
+  nav.toc .inner{max-width:1120px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:10px 18px;scrollbar-width:thin}
+  nav.toc a{white-space:nowrap;color:var(--muted);font-size:13px;padding:7px 11px;border-radius:8px}
+  nav.toc a:hover{background:var(--surface);color:var(--text)}
+  section{margin:0 0 54px;scroll-margin-top:64px}
+  .sec-head{display:flex;align-items:center;gap:12px;margin:0 0 6px}
+  .sec-num{font-size:13px;font-weight:700;color:#0a0e16;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none}
+  h2{font-size:25px;margin:0;letter-spacing:-.3px}
+  h3{font-size:17px;margin:22px 0 8px}
+  p{color:#cbd5e1;margin:10px 0}
+  .muted{color:var(--muted)}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:820px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--border);
+    border-radius:14px;padding:18px;box-shadow:var(--shadow)}
+  .card h4{margin:0 0 6px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .card p{font-size:13.5px;margin:0;color:var(--muted)}
+  .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;font-size:15px;
+    background:rgba(91,157,255,.13);border:1px solid rgba(91,157,255,.3)}
+  .callout{border-left:3px solid var(--accent);background:rgba(91,157,255,.06);padding:14px 16px;border-radius:0 12px 12px 0;margin:16px 0}
+  .callout .lab{font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--accent);text-transform:uppercase;margin-bottom:4px}
+  .callout.plain{border-left-color:var(--accent2);background:rgba(45,212,191,.06)}
+  .callout.plain .lab{color:var(--accent2)}
+  .callout.warn{border-left-color:var(--warn);background:rgba(245,166,35,.06)}
+  .callout.warn .lab{color:var(--warn)}
+  .banner{border:1px solid var(--warn);background:linear-gradient(180deg,rgba(245,166,35,.12),rgba(245,166,35,.04));
+    border-radius:14px;padding:16px 18px;margin:22px 0}
+  .banner .bt{font-weight:700;color:var(--warn);font-size:14px;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .banner p{font-size:13.5px;margin:6px 0 0;color:#e9d9bf}
+  .tl{display:flex;gap:10px;align-items:flex-start;background:rgba(45,212,191,.07);border:1px solid rgba(45,212,191,.25);
+    border-radius:10px;padding:11px 14px;margin:4px 0 14px;font-size:14px;color:#bfeee4}
+  .tl b{color:var(--accent2);flex:none}
+  .pipe{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:8px 0}
+  .node{flex:1 1 150px;min-width:130px;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;
+    padding:14px;position:relative}
+  .node .t{font-weight:700;font-size:14px}
+  .node .d{font-size:12px;color:var(--muted);margin-top:4px}
+  .node.acc{background:linear-gradient(180deg,rgba(91,157,255,.18),var(--surface2));border-color:var(--accent)}
+  .node.tok{background:linear-gradient(180deg,rgba(45,212,191,.16),var(--surface2));border-color:var(--accent2)}
+  .arrow{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px;padding:0 6px;flex:none}
+  @media(max-width:820px){.arrow{transform:rotate(90deg);padding:6px 0}}
+  .loop{margin-top:6px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px}
+  td b{color:var(--text)}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--border2);color:var(--muted)}
+  .tag.g{color:var(--green);border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.08)}
+  .tag.b{color:var(--accent);border-color:rgba(91,157,255,.4);background:rgba(91,157,255,.08)}
+  .tag.y{color:var(--warn);border-color:rgba(245,166,35,.4);background:rgba(245,166,35,.08)}
+  .tag.r{color:var(--danger);border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.08)}
+  .tag.p{color:var(--purple);border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.08)}
+  .ladder{display:flex;flex-direction:column;gap:0;border-left:3px solid var(--border2);margin-left:8px}
+  .step{position:relative;padding:12px 0 12px 26px;margin-left:2px}
+  .step::before{content:"";position:absolute;left:-9px;top:18px;width:14px;height:14px;border-radius:50%;
+    background:var(--surface);border:3px solid var(--muted)}
+  .step.p::before{border-color:var(--danger)}
+  .step.w::before{border-color:var(--accent)}
+  .step.id::before{border-color:var(--accent2)}
+  .step .st{font-weight:700;font-size:14px}
+  .step .sd{font-size:12.5px;color:var(--muted)}
+  .modes{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .mode{border:1px solid var(--border2);border-radius:12px;padding:16px;background:var(--surface)}
+  .mode .mh{font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .led{width:10px;height:10px;border-radius:50%}
+  .mode p{font-size:13px;margin:0}
+  .fig{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--border);border-radius:14px;
+    padding:18px;box-shadow:var(--shadow);overflow:auto}
+  .fig figcaption{color:var(--muted);font-size:12.5px;margin-top:10px;text-align:center}
+  svg{display:block;max-width:100%;height:auto}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:10px}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .code{margin:14px 0;border:1px solid var(--border2);border-radius:10px;overflow:hidden;background:#0b1220}
+  .code .cap{font-size:11.5px;color:var(--muted);padding:8px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)}
+  .code pre{margin:0;padding:14px;overflow:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12.5px;line-height:1.55;color:#cdd7e6}
+  .code .cm{color:#5f7e8c}.code .ky{color:#7fd1ff}.code .st{color:#9fe0b0}
+  footer{border-top:1px solid var(--border);padding-top:26px;color:var(--muted);font-size:13px}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;background:var(--surface2);border:1px solid var(--border2);color:var(--muted)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.two{grid-template-columns:1fr}.modes{grid-template-columns:1fr}}
+  .hl{color:var(--accent2);font-weight:600}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface2);border:1px solid var(--border2);
+    padding:1px 7px;border-radius:6px;font-size:12.5px;color:#cbd5e1}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="kicker">● DeepSeek 研究原型 · 不是官方产品</div>
+  <h1>dsh-superagent</h1>
+  <div class="subtitle">一个住在你 <b>单个 GitHub 仓库</b> 里的主动式编程智能体。它监听 GitHub（可选飞书），被允许的人一开口，就开一张"工单"自己干活，最后把结果（比如一个 PR）回在原对话里。核心信条只有一句：<span class="hl">占最少的人脑注意力，给最大的价值</span>。</div>
+  <div class="meta">
+    <div class="chip"><span class="dot"></span><b>语言</b> <span>TypeScript</span></div>
+    <div class="chip"><span class="dot"></span><b>运行</b> <span>Node 22.19+ / 24+</span></div>
+    <div class="chip"><span class="dot"></span><b>宿主</b> <span>DeepSeek Harness 插件</span></div>
+    <div class="chip"><span class="dot"></span><b>协议</b> <span>MIT</span></div>
+    <div class="chip"><span class="dot"></span><b>首版提交</b> <span>2026-10-31</span></div>
+    <div class="chip"><span class="dot"></span><b>仓库</b> <span>deepseek-ai/dsh-superagent-prototype</span></div>
+  </div>
+
+  <div class="banner">
+    <div class="bt">⚠ 先读这条边界：已实现 vs 论文里的"未来方向"</div>
+    <p>本仓库文档描述的这套设计——领域模型、授权、执行、架构、Web 面板——就是<b>本原型已经实现</b>的内容，可用来理解和评估。但仓库在 README 明确声明：它是为发布改编过的版本，<b>不等于</b>其内部版本，也<b>不等于</b>论文《Exploring Super-agent Design》里描述的实现；论文中提及的<b>部分设计属于未来方向、本原型尚未实现</b>。所以：下面讲的是"这个原型做了什么"，不是"DeepSeek 内部生产版或论文全部蓝图做了什么"。具体哪些未实现，以仓库最新内容为准。</p>
+  </div>
+</header>
+
+<nav class="toc"><div class="inner">
+  <a href="#s1">① 一句话理解</a>
+  <a href="#s2">② 核心哲学</a>
+  <a href="#s3">③ 领域模型</a>
+  <a href="#s4">④ 授权模型</a>
+  <a href="#s5">⑤ 执行模型</a>
+  <a href="#s6">⑥ 系统架构</a>
+  <a href="#s7">⑦ Web 面板</a>
+  <a href="#s8">⑧ 技术栈</a>
+  <a href="#s9">⑨ 快速开始</a>
+  <a href="#s10">⑩ 重要提醒</a>
+</div></nav>
+
+<div class="wrap">
+
+<!-- 1 -->
+<section id="s1">
+  <div class="sec-head"><div class="sec-num">1</div><h2>一句话理解：它是个什么？</h2></div>
+  <p>把它想象成 <b>"一个住在你仓库里、随叫随到的外包同事"</b>。你（或团队里被授权的人）在 Issue 评论里 <span class="kbd">@agent 帮我修下这个 bug</span>，它就去自己的目录里拉代码、改、验证，然后把一个 PR 推回同一个 Issue。中间基本不烦你——直到它需要你拍板，或活干完了。</p>
+
+  <div class="pipe">
+    <div class="node tok"><div class="t">来源 Source</div><div class="d">GitHub 通知 / 飞书消息</div></div>
+    <div class="arrow">→</div>
+    <div class="node"><div class="t">触发 Trigger</div><div class="d">一条不可变事件</div></div>
+    <div class="arrow">→</div>
+    <div class="node acc"><div class="t">评估 Eval</div><div class="d">策略门禁 + 模型研判</div></div>
+    <div class="arrow">→</div>
+    <div class="node"><div class="t">工单 Ticket</div><div class="d">一份被授权的活</div></div>
+    <div class="arrow">→</div>
+    <div class="node tok"><div class="t">执行器 Executor</div><div class="d">独立 Session + 目录</div></div>
+    <div class="arrow">→</div>
+    <div class="node acc"><div class="t">产出 Output</div><div class="d">PR / 回复 / 评论</div></div>
+  </div>
+  <div class="loop">
+    <svg viewBox="0 0 900 70" role="img" aria-label="人的回路">
+      <defs><marker id="lp" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#a78bfa"/></marker></defs>
+      <path d="M860,16 C880,40 880,52 840,56 C520,70 360,70 130,56 C70,50 60,40 70,22" fill="none" stroke="#a78bfa" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#lp)"/>
+      <text x="450" y="42" fill="#c4b1ff" font-size="13" text-anchor="middle">↺ 人：在原始对话发起请求，结果也回到原始对话；能自己干的绝不打扰你</text>
+    </svg>
+  </div>
+
+  <h3>它和普通编程 Agent 差在哪？（最该先懂的一张表）</h3>
+  <table>
+    <thead><tr><th>维度</th><th>普通编程 Agent（Claude Code / Cursor / 传统 CI bot）</th><th>dsh-superagent</th></tr></thead>
+    <tbody>
+      <tr><td><b>触发方式</b></td><td>你手动开一个会话、跑一条命令</td><td>监听仓库事件，被 <span class="kbd">@</span> 才动（事件驱动）</td></tr>
+      <tr><td><b>授权边界</b></td><td>权限=你本人，本地随便干</td><td>无 Mandate 不开工；白名单 + 规则 + 强度三重门禁</td></tr>
+      <tr><td><b>自主性</b></td><td>单轮对话，你推一步它走一步</td><td>自己开 PR、跟 CI/评审、断点续传</td></tr>
+      <tr><td><b>打扰频率</b></td><td>你主动问、它答</td><td>只在"必须你拍板 / 能用结果"时出声，默认安静</td></tr>
+      <tr><td><b>交付物</b></td><td>一段代码 / 一条建议</td><td>回到原对话的结果（PR / 评论），全程可审计</td></tr>
+      <tr><td><b>设计重心</b></td><td>能力最大化</td><td>注意力经济：价值 ≥ 注意力成本</td></tr>
+      <tr><td><b>适合场景</b></td><td>个人随用随问</td><td>团队级、长期驻守单个仓库的"外包同事"</td></tr>
+    </tbody>
+  </table>
+
+  <h3>一次完整请求的时序</h3>
+  <div class="fig">
+    <svg viewBox="0 0 920 400" role="img" aria-label="请求到 PR 的时序图">
+      <defs>
+        <marker id="rt" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5b9dff"/></marker>
+        <marker id="lt" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#2dd4bf"/></marker>
+      </defs>
+      <g font-size="11.5" fill="#cdd7e6" text-anchor="middle">
+        <rect x="48" y="16" width="44" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="70" y="33">人</text>
+        <rect x="166" y="16" width="48" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="190" y="33">来源</text>
+        <rect x="280" y="16" width="60" height="26" rx="6" fill="#16263a" stroke="#5b9dff"/><text x="310" y="33">主会话</text>
+        <rect x="404" y="16" width="52" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="430" y="33">评估</text>
+        <rect x="524" y="16" width="52" height="26" rx="6" fill="#16263a" stroke="#2dd4bf"/><text x="550" y="33">工单</text>
+        <rect x="640" y="16" width="60" height="26" rx="6" fill="#1b2435" stroke="#a78bfa"/><text x="670" y="33">执行器</text>
+        <rect x="764" y="16" width="52" height="26" rx="6" fill="#1b2435" stroke="#2e3b52"/><text x="790" y="33">仓库</text>
+      </g>
+      <g stroke="#33425c" stroke-width="1" stroke-dasharray="3 4">
+        <line x1="70" y1="44" x2="70" y2="372"/><line x1="190" y1="44" x2="190" y2="372"/>
+        <line x1="310" y1="44" x2="310" y2="372"/><line x1="430" y1="44" x2="430" y2="372"/>
+        <line x1="550" y1="44" x2="550" y2="372"/><line x1="670" y1="44" x2="670" y2="372"/>
+        <line x1="790" y1="44" x2="790" y2="372"/>
+      </g>
+      <g font-size="10" fill="#aeb9c9">
+        <line x1="70" y1="80" x2="190" y2="80" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="128" y="75">@agent 请求</text>
+        <line x1="190" y1="110" x2="310" y2="110" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="248" y="105">Trigger 事件</text>
+        <line x1="310" y1="140" x2="430" y2="140" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="368" y="135">评估批次</text>
+        <line x1="430" y1="170" x2="310" y2="170" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="372" y="165">接单 + 授权书</text>
+        <line x1="310" y1="200" x2="550" y2="200" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="430" y="195">创建工单</text>
+        <line x1="310" y1="230" x2="670" y2="230" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="490" y="225">派工 Assignment</text>
+        <line x1="670" y1="260" x2="790" y2="260" stroke="#5b9dff" stroke-width="1.6" marker-end="url(#rt)"/><text x="728" y="255">开 PR / 改码</text>
+        <line x1="790" y1="290" x2="670" y2="290" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="728" y="285">CI / 评审</text>
+        <line x1="670" y1="320" x2="310" y2="320" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="490" y="315">ready 汇报</text>
+        <line x1="310" y1="345" x2="190" y2="345" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="248" y="340">渠道回复(PR)</text>
+        <line x1="190" y1="368" x2="70" y2="368" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#lt)"/><text x="128" y="363">结果回原对话</text>
+      </g>
+      <text x="70" y="392" fill="#7f8ea6" font-size="10.5">→ 下发/请求（蓝）</text>
+      <text x="200" y="392" fill="#7f8ea6" font-size="10.5">← 回报/回复（青）</text>
+    </svg>
+    <figcaption>从 @提及 到 PR 回到原对话的全链路：主会话只做路由，真正干活的是执行器。</figcaption>
+  </div>
+
+  <div class="callout plain">
+    <div class="lab">说人话</div>
+    传统 Agent 是"你问一句它答一句"。dsh-superagent 是"你交代一件事，它自己开干、自己交活，中间不啰嗦"。而且它只对<b>被授权的人</b>响应，只做<b>被授权范围</b>内的事——不是谁都能使唤，也不会自作主张。
+  </div>
+
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><div class="ic">📡</div><h4>监听，不轮询你</h4><p>作为 DeepSeek Harness 的一个 bundle 运行，监听 GitHub（飞书可选）。事件驱动，不是你手动触发。</p></div>
+    <div class="card"><div class="ic">🎫</div><h4>每张工单都授权</h4><p>没有"授权书"(Mandate) 的活它不开工。授权来自"白名单里的人开口"或"团队写好的规则"。</p></div>
+    <div class="card"><div class="ic">🤫</div><h4>只在关键点出声</h4><p>开工前确认一次；干活时闭嘴；出结果、要你拍板、或干不完时才说话。一条消息默认一句话。</p></div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="s2">
+  <div class="sec-head"><div class="sec-num">2</div><h2>核心哲学：占最少注意力，给最大价值</h2></div>
+  <div class="tl"><b>30 秒：</b>把"占用你多少注意力"当成每个部件的统一打分标准，不划算就砍掉。</div>
+  <p>整个项目用"<b>它消耗了你多少注意力</b>"来给每个部件打分。一条消息、一个通知、一个设置项、面板上的一个元素，只要它带来的价值不超过它占用的注意力，就砍掉。这是设计的总纲。</p>
+
+  <div class="fig" style="margin-top:14px">
+    <svg viewBox="0 0 760 230" role="img" aria-label="注意力天平">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#5b9dff"/><stop offset="1" stop-color="#2dd4bf"/>
+        </linearGradient>
+      </defs>
+      <line x1="120" y1="70" x2="640" y2="70" stroke="url(#g1)" stroke-width="6" stroke-linecap="round"/>
+      <polygon points="380,55 392,86 368,86" fill="#cdd7e6"/>
+      <line x1="380" y1="86" x2="380" y2="190" stroke="#5a6b85" stroke-width="5"/>
+      <rect x="350" y="190" width="60" height="14" rx="4" fill="#5a6b85"/>
+      <line x1="120" y1="70" x2="120" y2="110" stroke="#5a6b85" stroke-width="3"/>
+      <path d="M70 110 q50 40 100 0 Z" fill="rgba(255,107,107,.18)" stroke="#ff6b6b" stroke-width="2"/>
+      <text x="120" y="138" fill="#ff8a8a" font-size="13" text-anchor="middle" font-weight="700">占用注意力</text>
+      <text x="120" y="156" fill="#93a1b5" font-size="11" text-anchor="middle">消息 / 通知 / 设置 / 面板元素</text>
+      <line x1="640" y1="70" x2="640" y2="110" stroke="#5a6b85" stroke-width="3"/>
+      <path d="M590 110 q50 40 100 0 Z" fill="rgba(52,211,153,.18)" stroke="#34d399" stroke-width="2"/>
+      <text x="640" y="138" fill="#56e0b0" font-size="13" text-anchor="middle" font-weight="700">创造的价值</text>
+      <text x="640" y="156" fill="#93a1b5" font-size="11" text-anchor="middle">可用的结果 / 需要的决策</text>
+      <circle cx="380" cy="40" r="16" fill="url(#g1)"/>
+      <text x="380" y="45" fill="#06121f" font-size="14" text-anchor="middle" font-weight="800">⚖</text>
+    </svg>
+    <figcaption>天平原则：每个部件都要"价值 ≥ 注意力成本"，否则删除。</figcaption>
+  </div>
+
+  <h3>对智能体的几条"规矩"</h3>
+  <div class="grid g2">
+    <div class="card"><h4>🚦 只在被要求、或被规则允许时才行动</h4><p>请求必须直接 @ 到它，且来自白名单里的人。没人要的活，必须有团队写好的规则，且先进入"只记录、不动手"的模式。</p></div>
+    <div class="card"><h4>🤐 只在"人必须行动 / 能用结果"时才开口</h4><p>开工前确认一次并说明要做什么；干活时安静；结果就绪、需要决策、或干不完时才再说话。</p></div>
+    <div class="card"><h4>❓ 一次只问一个具体问题</h4><p>用结构化表单提问，让问题真正送到人手上，而不是埋在一篇长报告里。</p></div>
+    <div class="card"><h4>🛑 按"影响"收尾，不按"努力"</h4><p>一个局部改动做到"可评审"就停；需要设计决策的，留下一个清晰的问题收尾。</p></div>
+    <div class="card"><h4>📋 诚实汇报</h4><p>草稿标"未完成"，失败就说失败，绝不绕过限制去避免提问。</p></div>
+    <div class="card"><h4>🧩 少概念、少设置</h4><p>业务需求变成某个领域概念的属性，或一段 prompt 文本；能用默认值替代的就不做成设置项。</p></div>
+  </div>
+
+  <div class="callout warn">
+    <div class="lab">对运营者的责任提醒</div>
+    智能体以你团队天天见到的账号发评论、开 PR、发消息——每条都会消耗同事的注意力，<b>你对此负责</b>。建议：① 从短白名单 + 只记录模式起步；② 太吵就收紧 prompt 或暂停，别用更多消息去解释噪音；③ 别拿它刷量（批量 PR、群发消息）；④ 它替你发的，你读、你改、你担。
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="s3">
+  <div class="sec-head"><div class="sec-num">3</div><h2>领域模型：一套极简但自洽的概念</h2></div>
+  <div class="tl"><b>30 秒：</b>只用 5 个概念（来源 / 触发 / 线程 / 评估 / 工单）就把整套协作说清楚，业务需求只是它们的属性。</div>
+  <p>代码、工具、面板、文档都用同一套术语。遵循哲学，模型里<b>只有工作真正需要的概念</b>，业务需求变成概念的属性，而不是新造一个概念。下面是它的核心流转：来源产生触发 → 触发按线程聚合 → 评估决定是否开新工单 → 工单派给执行器 → 结果通过渠道回到来源。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 900 300" role="img" aria-label="领域模型流转图">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7f8ea6"/></marker>
+        <style>
+          .b{fill:#1b2435;stroke:#2e3b52;stroke-width:1.5}
+          .bt{fill:#e7edf5;font-size:13px;font-weight:700}
+          .bd{fill:#93a1b5;font-size:10.5px}
+          .lbl{fill:#9fb0c6;font-size:10.5px}
+        </style>
+      </defs>
+      <rect class="b" x="20" y="120" width="120" height="58" rx="10"/>
+      <text class="bt" x="80" y="146" text-anchor="middle">Source</text>
+      <text class="bd" x="80" y="164" text-anchor="middle">来源</text>
+      <rect class="b" x="200" y="30" width="120" height="58" rx="10"/>
+      <text class="bt" x="260" y="56" text-anchor="middle">Thread</text>
+      <text class="bd" x="260" y="74" text-anchor="middle">线程</text>
+      <rect class="b" x="200" y="200" width="120" height="58" rx="10"/>
+      <text class="bt" x="260" y="226" text-anchor="middle">Eval</text>
+      <text class="bd" x="260" y="244" text-anchor="middle">评估</text>
+      <rect class="b" x="410" y="120" width="120" height="58" rx="10" style="fill:#16263a;stroke:#2dd4bf"/>
+      <text class="bt" x="470" y="146" text-anchor="middle">Ticket</text>
+      <text class="bd" x="470" y="164" text-anchor="middle">工单</text>
+      <rect class="b" x="620" y="120" width="120" height="58" rx="10"/>
+      <text class="bt" x="680" y="146" text-anchor="middle">Executor</text>
+      <text class="bd" x="680" y="164" text-anchor="middle">执行器</text>
+      <rect class="b" x="620" y="220" width="120" height="48" rx="10" style="fill:#16263a;stroke:#5b9dff"/>
+      <text class="bt" x="680" y="246" text-anchor="middle" style="font-size:12">Channel 渠道</text>
+      <rect class="b" x="410" y="20" width="120" height="44" rx="10" style="stroke:#a78bfa"/>
+      <text class="bt" x="470" y="47" text-anchor="middle" style="font-size:12">Policy 策略</text>
+      <line x1="140" y1="150" x2="195" y2="70" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="150" y="100" transform="rotate(-32 150 100)">Trigger</text>
+      <line x1="320" y1="60" x2="405" y2="125" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="345" y="92">batch</text>
+      <line x1="320" y1="230" x2="405" y2="160" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="345" y="205">accept / stop</text>
+      <line x1="530" y1="149" x2="615" y2="149" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="560" y="142">Assignment</text>
+      <line x1="680" y1="178" x2="680" y2="218" stroke="#7f8ea6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text class="lbl" x="690" y="200">Channel</text>
+      <line x1="530" y1="149" x2="615" y2="245" stroke="#5b9dff" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+      <text class="lbl" x="560" y="215" fill="#9db8ff">reply 回到来源</text>
+      <line x1="470" y1="64" x2="470" y2="118" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+      <text class="lbl" x="482" y="92" fill="#c4b1ff">notice</text>
+    </svg>
+    <figcaption>核心流转：Source →(Trigger)→ Thread →(batch)→ Eval →(accept)→ Ticket →(Assignment)→ Executor →(Channel)→ Source</figcaption>
+  </div>
+
+  <h3>五个"核心概念" + 它们的职责</h3>
+  <table>
+    <thead><tr><th>概念</th><th>是什么</th><th>它守的规矩 / 为什么存在</th></tr></thead>
+    <tbody>
+      <tr><td><b>Source 来源</b></td><td>一条事件流。一种"kind"(可复用实现) + 一份"instance"(配置)</td><td>保存自己的读取位置与机器人身份；把平台事件翻译成 Trigger 与 Thread；丢弃自己的消息与无关触发。<span class="tag b">重启不重放</span></td></tr>
+      <tr><td><b>Trigger 触发</b></td><td>一条不可变事件，带来源自己的元数据(如发起人)</td><td>属于一个或多个 Thread；同一触发被接受两次只生成一张工单。<span class="tag g">审计与幂等的最小单位</span></td></tr>
+      <tr><td><b>Thread 线程</b></td><td>按时间排序的 Trigger 序列</td><td>同一时刻最多跑一个 Eval；可有多个工单；持有订阅、运行中 Eval、决策历史。<span class="tag p">给 Eval 一致视图</span></td></tr>
+      <tr><td><b>Eval 评估</b></td><td>对一批 Trigger 的判断，分两层：门禁(gate) + 研判(assessment)</td><td>无状态。输入触发批/线程快照/工单/策略，输出一个 Decision。<span class="tag y">决定是否开工</span></td></tr>
+      <tr><td><b>Ticket 工单</b></td><td>一份"被授权的活"</td><td>只有 Eval 能创建；引用授权书 Mandate；持有渠道与输入；状态自己定义(不被执行器绑架)。<span class="tag b">拥有执行与汇报</span></td></tr>
+    </tbody>
+  </table>
+  <p class="muted">其余概念支撑这五个：<b>Mandate 授权书</b>(接单授予的"凭什么干、能干多远")、<b>Assignment 派工</b>(工单绑定到某个执行器实例)、<b>Subscription 订阅</b>(工单与线程的多对多关系)、<b>Channel 渠道</b>(线程的写入侧)、<b>Correlation 关联</b>(只补上下文，不路由)。</p>
+
+  <div class="callout plain">
+    <div class="lab">说人话</div>
+    "人"不是领域概念——只是 Trigger 上的一段元数据。"白名单"是策略里某个来源的一份配置；"跨平台账号对应"是写给智能体看的 prompt 文本。设计刻意不把"人""组织""跨平台映射"做成实体，保持模型极简。
+  </div>
+</section>
+
+<!-- 4 -->
+<section id="s4">
+  <div class="sec-head"><div class="sec-num">4</div><h2>授权模型：谁能让它干活？能干多远？</h2></div>
+  <div class="tl"><b>30 秒：</b>没"授权书"不开工；白名单、规则、强度三重把关，而聊天内容永远改不了权限。</div>
+  <p>一个 Trigger 进入系统有<b>两条路</b>：要么走 Eval（决定要不要开新活），要么走订阅（延续已有的活）。门禁只认白名单、规则与授权书；聊天内容、引用的文档都只是判断的"输入"，<b>改不了权限</b>。</p>
+
+  <div class="two">
+    <div class="card" style="border-color:var(--accent)">
+      <h4>🆕 路径 A：新建工作（走 Eval）</h4>
+      <p style="color:#cbd5e1">来源先判断消息是否 @ 到智能体（<b>mention</b>=@提及，<b>direct</b>=私信）。门禁检查发送者 + 该来源的策略：</p>
+      <ul style="font-size:13px;color:var(--muted);margin:6px 0 0;padding-left:18px">
+        <li>白名单上的人 @ 它 → <span class="tag b">明确请求 explicit</span></li>
+        <li>在已有工单的线程上跟帖 → 按跟帖规则处理</li>
+        <li>其他人 → 走"准入表"决定能否成候选</li>
+        <li>机器人名单上的 bot → 只能成 <span class="tag p">推断候选 inferred</span>，不能明确请求</li>
+      </ul>
+    </div>
+    <div class="card" style="border-color:var(--accent2)">
+      <h4>🔁 路径 B：延续工作（走订阅）</h4>
+      <p style="color:#cbd5e1">被订阅线程上的<b>每条</b>消息（含 bot 与 CI）都会作为上下文送达工单，<b>绕过门禁、不授予新权限</b>。工单仍受自己的授权书约束。</p>
+      <ul style="font-size:13px;color:var(--muted);margin:6px 0 0;padding-left:18px">
+        <li>人对"自己线程"的跟帖 → 执行器自己拍板</li>
+        <li>执行器只处理范围内的事，超出范围就"交回"</li>
+        <li>bot/CI 不会唤醒已结束的工单</li>
+        <li>只在"人明确说停"或"重新验证失败"时才撤销授权</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>三种"强度" Strength</h3>
+  <table>
+    <thead><tr><th>强度</th><th>典型情形</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag b">explicit 明确</span></td><td>白名单上的人 @ 它 / 在已有工单线程上跟帖 / 准入表中被设为"明确请求"的格子</td></tr>
+      <tr><td><span class="tag p">inferred 推断</span></td><td>不在白名单的人在工单线程跟帖 / 准入表设为"推断候选" / 机器人名单上的 bot 发言</td></tr>
+      <tr><td><span class="tag r">not admitted 不受理</span></td><td>其它 bot 的消息 / 准入表忽略的内容 / 在 <span class="kbd">off</span> 模式下的一切推断情形</td></tr>
+    </tbody>
+  </table>
+
+  <h3>接受模式 Accept mode：主动程度的三档开关</h3>
+  <div class="modes">
+    <div class="mode"><div class="mh"><span class="led" style="background:#ff6b6b"></span>off 关闭</div><p>任何推断候选都不受理（未@的消息、bot 消息、非白名单者跟帖）。<b>明确请求始终有效</b>。</p></div>
+    <div class="mode" style="border-color:var(--warn)"><div class="mh"><span class="led" style="background:#f5a623"></span>observe 观察（默认）</div><p>推断候选照常研判；研判"该接"的只记一条"本会接"的忽略，<b>不真正开工</b>。先用这个看它想干嘛。</p></div>
+    <div class="mode" style="border-color:var(--green)"><div class="mh"><span class="led" style="background:#34d399"></span>auto 自动</div><p>推断候选研判"该接"就<b>直接接单</b>。等你看过观察期记录、确认它靠谱后再切到这档。</p></div>
+  </div>
+
+  <div class="callout warn">
+    <div class="lab">建议起步姿势</div>
+    从 <span class="kbd">observe</span> 起步，审完被记录的 Decision 再切 <span class="kbd">auto</span>。每条主动接单都需要至少命中一条"规则"(rule)；规则描述一类主动工作，其流程/沟通要求会覆盖该工单的默认行为（比如某规则可指定"必须某人 reviewer 批准才能合并"）。
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="s5">
+  <div class="sec-head"><div class="sec-num">5</div><h2>执行模型：一张工单是怎么干完的</h2></div>
+  <div class="tl"><b>30 秒：</b>每张工单一个独立 Session+目录，自己开 PR、自己跟评审/CI，干不完或要你拍板就停下等，重启还能续。</div>
+  <p>每个工单拿到一个 <span class="kbd">worker-&lt;工单id&gt;</span> 的执行器 Session 和一个以工单短名命名的目录。执行器以运营者的 OS 用户身份、<b>免审批</b>地跑命令；worker preset 会在 5 秒后把前台 shell 转到后台任务，这样长命令不会卡住它接收新消息。</p>
+
+  <h3>工单的阶段阶梯（从上往下，先命中谁算谁）</h3>
+  <div class="ladder">
+    <div class="step p"><div class="st">Input 未送达 · person</div><div class="sd">把输入交给执行器 Session 失败，2 秒后重试，之后退避翻倍直到 1 分钟。</div></div>
+    <div class="step p"><div class="st">等待答复 Awaiting answer · person</div><div class="sd">工单上有一个"待人工决定"(Attention)——执行器通过 <span class="kbd">human_action</span> 抛出一个具体问题。</div></div>
+    <div class="step p"><div class="st">等待评审 Awaiting review · person</div><div class="sd">最新汇报是 <span class="kbd">ready</span>——通常意味着"开了 PR，等你看"。</div></div>
+    <div class="step p"><div class="st">受阻 / 失败 Blocked · Failed · person</div><div class="sd">最新汇报 blocked 或 failed，且此后无人消息。新的人消息会把它释放回执行器。</div></div>
+    <div class="step w"><div class="st">排队 Queued · working</div><div class="sd">还没有派工，或派工还在 pending。</div></div>
+    <div class="step id"><div class="st">等待触发 Waiting for a Trigger · idle</div><div class="sd">最新汇报是 <span class="kbd">waiting</span>，或派工已结束——这一轮干完、没有未决问题，等下一个触发来续。</div></div>
+    <div class="step w"><div class="st">执行中 Working · working</div><div class="sd">其它一切情况，正在干活。</div></div>
+  </div>
+  <p class="muted" style="font-size:13px">带 <b>person</b> 的阶段 = 没人的输入就走不下去；人在订阅线程上的新消息能把"受阻/失败"的工单释放给执行器。</p>
+
+  <div class="grid g3" style="margin-top:18px">
+    <div class="card"><div class="ic">🗂️</div><h4>每工单一目录</h4><p>首次派工前，prepare 命令（默认 <span class="kbd">git worktree</span>）跑一次，建好 checkout；PR 的分支末段与工单短名匹配即归属该工单。</p></div>
+    <div class="card"><div class="ic">⏱️</div><h4>工作槽 Worker slot</h4><p>工单从启动起就占一个槽；轮次结束还有后台任务/子智能体在跑，就保住槽、不算"等待"。后台任务最多 30 分钟。</p></div>
+    <div class="card"><div class="ic">🔀</div><h4>合并有分寸</h4><p>默认<b>绝不</b>以智能体账号开自动合并；Delivery 要求里要写"用另一个账号的 CLI 来合并"。自动合并仅限：就绪 + 必需审批覆盖头提交 + 增删合计 &lt;200 行。</p></div>
+  </div>
+
+  <h3>默认"自动合并"规则的要点（Delivery requirements）</h3>
+  <div class="callout">
+    <div class="lab">规则要点（非逐字，摘自文档描述）</div>
+    <p style="color:#cbd5e1;font-size:13.5px;margin:0">① 默认<b>绝不以智能体账号</b>开启自动合并——GitHub 会把合并记到开启者头上；要合并，必须由 Delivery requirements 里指定的<b>另一个账号的 CLI</b> 执行。② 只有当 PR 是为本工单开的、已 <span class="kbd">ready</span>、必需审批覆盖头提交、且<b>增删合计 &lt; 200 行</b>时，才允许自动合并。③ 推送新修订前，执行器先撤回自动合并。④ 没有指定合并 CLI 就删掉自动合并段落，改为人工合并。</p>
+  </div>
+
+  <div class="callout plain">
+    <div class="lab">说人话</div>
+    它不是"开个线程跑完就完"。它会自己开 PR、自己跟踪 PR 的评审/CI/合并，PR 全关了工单才算完；过程中人插话它会接、超出范围它交回；干不完或要你拍板就停下等。重启/崩溃后，未读消息会回到 Eval，已读内容保留——所以它"断点续传"而不是"从头乱来"。
+  </div>
+</section>
+
+<!-- 6 -->
+<section id="s6">
+  <div class="sec-head"><div class="sec-num">6</div><h2>系统架构：严格单向依赖 + 单一写入者</h2></div>
+  <div class="tl"><b>30 秒：</b>依赖严格单向，所有领域写入只经 Engine，外部副作用先存后做，所以易推理、易恢复。</div>
+  <p>核心设计纪律：<b>src/core 不碰 I/O、不 import 外部</b>；<b>src/sources 不 import src/app</b>；面板只 import 类型。所有领域写入只经由 <b>Engine</b>（唯一写入者），外部副作用先入队(Effects/Outbox)，事务提交后再执行。整个东西作为 DeepSeek Harness 的一个 bundle 注入运行。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 900 440" role="img" aria-label="系统架构图">
+      <defs>
+        <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6f8099"/></marker>
+        <style>
+          .c{fill:#141b29;stroke:#2e3b52;stroke-width:1.4}
+          .ct{fill:#e7edf5;font-size:13.5px;font-weight:700}
+          .cd{fill:#8b97a8;font-size:10.5px}
+          .gl{fill:#7f8ea6;font-size:10.5px}
+          .pill{fill:#1b2435;stroke:#2e3b52;stroke-width:1.2}
+          .pt{fill:#cdd7e6;font-size:11px}
+        </style>
+      </defs>
+      <g>
+        <rect class="pill" x="40" y="104" width="150" height="34" rx="8"/><text class="pt" x="115" y="125" text-anchor="middle">Intake 接收入</text>
+        <rect class="pill" x="206" y="104" width="150" height="34" rx="8"/><text class="pt" x="281" y="125" text-anchor="middle">Evals 评估</text>
+        <rect class="pill" x="372" y="104" width="150" height="34" rx="8"/><text class="pt" x="447" y="125" text-anchor="middle">Tickets 生命周期</text>
+        <rect class="pill" x="538" y="104" width="150" height="34" rx="8"/><text class="pt" x="613" y="125" text-anchor="middle">Assignments 派工</text>
+        <rect class="pill" x="704" y="104" width="150" height="34" rx="8"/><text class="pt" x="779" y="125" text-anchor="middle">Replies 渠道写</text>
+      </g>
+      <rect class="c" x="350" y="24" width="200" height="44" rx="10" style="stroke:#5b9dff"/>
+      <text class="ct" x="450" y="46" text-anchor="middle">Runtime · 组合根</text>
+      <text class="cd" x="450" y="60" text-anchor="middle">构造应用 / 启动 / 关闭（无领域规则）</text>
+      <rect class="c" x="320" y="215" width="260" height="66" rx="10" style="fill:#16263a;stroke:#2dd4bf"/>
+      <text class="ct" x="450" y="240" text-anchor="middle">Engine · 唯一写入者</text>
+      <text class="cd" x="450" y="258" text-anchor="middle">Triggers / Threads / Decisions</text>
+      <text class="cd" x="450" y="272" text-anchor="middle">Tickets / Assignments</text>
+      <rect class="c" x="30" y="158" width="240" height="86" rx="10" style="stroke:#34d399"/>
+      <text class="ct" x="150" y="188" text-anchor="middle">Sources 插件</text>
+      <text class="cd" x="150" y="206" text-anchor="middle">GitHub / 飞书（飞书默认关）</text>
+      <text class="cd" x="150" y="222" text-anchor="middle">payload → Trigger/Thread</text>
+      <text class="cd" x="150" y="236" text-anchor="middle">轮询 · channel 发送</text>
+      <rect class="c" x="630" y="158" width="240" height="86" rx="10" style="stroke:#a78bfa"/>
+      <text class="ct" x="750" y="188" text-anchor="middle">DshExecutor</text>
+      <text class="cd" x="750" y="206" text-anchor="middle">每工单一 Session + 目录</text>
+      <text class="cd" x="750" y="222" text-anchor="middle">launch / delivery</text>
+      <text class="cd" x="750" y="236" text-anchor="middle">WorkerSlots</text>
+      <rect class="c" x="330" y="360" width="240" height="58" rx="10"/>
+      <text class="ct" x="450" y="382" text-anchor="middle">Store · SQLite</text>
+      <text class="cd" x="450" y="400" text-anchor="middle">orchestrator.sqlite</text>
+      <rect class="c" x="630" y="330" width="240" height="76" rx="10" style="stroke:#f5a623"/>
+      <text class="ct" x="750" y="356" text-anchor="middle">Web Panel · React</text>
+      <text class="cd" x="750" y="374" text-anchor="middle">Overview / Source / Trigger</text>
+      <text class="cd" x="750" y="390" text-anchor="middle">Eval / Execution / Settings</text>
+      <line x1="450" y1="68" x2="450" y2="104" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a2)"/>
+      <line x1="450" y1="138" x2="450" y2="215" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="458" y="180">EngineParts（单向依赖）</text>
+      <line x1="270" y1="205" x2="318" y2="245" stroke="#34d399" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="150" y="232" fill="#7fe0c8">Triggers / SourceScope</text>
+      <line x1="580" y1="240" x2="628" y2="200" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="588" y="224" fill="#c4b1ff">Executor 端口</text>
+      <line x1="450" y1="281" x2="450" y2="358" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="392" y="325">Repositories</text>
+      <line x1="575" y1="278" x2="628" y2="346" stroke="#f5a623" stroke-width="1.5" marker-end="url(#a2)"/>
+      <text class="gl" x="540" y="320" fill="#f5c97a">管理 API</text>
+    </svg>
+    <figcaption>依赖方向严格单向：Runtime → Engine → EngineParts → 端口(Store / Sources / Executor / Panel)；所有写操作收敛到 Engine 与 Effects/Outbox 队列。</figcaption>
+  </div>
+
+  <h3><span class="kbd">cordis.patch.yml</span> 注入的插件（真实片段，已精简）</h3>
+  <div class="code">
+    <div class="cap">cordis.patch.yml — bundle 层：插入插件与 Agent preset（摘自仓库）</div>
+<pre><span class="cm"># bundle layer: 插入插件（无配置），以及各 Session 运行的 agent preset</span>
+- insert:
+    - id: dsh-superagent            <span class="cm"># 主插件</span>
+      name: dsh-superagent
+    - id: dsh-superagent-github     <span class="cm"># GitHub 来源</span>
+      name: dsh-superagent/github-watch
+    - id: dsh-superagent-feishu     <span class="cm"># 飞书来源（可选，默认关闭）</span>
+      name: dsh-superagent/feishu-watch
+      disabled: true
+    - id: dsh-superagent-worker-preset   <span class="cm"># 每个执行器 Session 的 preset</span>
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: dsh-superagent-worker
+        name: dsh-superagent 执行器
+        <span class="cm"># 前台命令超 5 秒转入后台；只含执行工作所需的工具</span>
+        plugins: [ persona, agent-instructions, shell, tool-fs,
+                   tool-jobs, skill-filesystem, tool-skill,
+                   compaction, delegation(子智能体), tool-todo ]</span></pre>
+  </div>
+
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card"><h4>🧩 cordis 补丁</h4><p>上述 patch 注入三个插件（主 / github-watch / feishu-watch）。面板或 Harness 改配置时，host 就地写回该文件，多数设置<b>免重启</b>生效（涉及 Setup 字段的保存会重启）。</p></div>
+    <div class="card"><h4>💾 持久化隔离</h4><p>只有 Store 开 SQLite 文件；DeepSeek Harness 提供 Session/进程环境，本系统通过窄接口(<span class="kbd">SourceHost</span>/<span class="kbd">SessionsHost</span>)消费，不反向依赖其内部实现。</p></div>
+    <div class="card"><h4>📨 Effects / Outbox</h4><p>决策后的中继/派工/投递都<b>先存后做</b>：入队 → 提交后执行，带合并、并发限制与指数退避重试。连续三次失败才上报系统问题。</p></div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section id="s7">
+  <div class="sec-head"><div class="sec-num">7</div><h2>Web 面板：只把"需要人"的亮出来</h2></div>
+  <div class="tl"><b>30 秒：</b>面板只在"需要人"的地方出现，且直接把动作递到你手边，健康态不占空间。</div>
+  <p>在 DeepSeek Harness 网页侧边栏打开 <b>Superagent</b> 即可监管。面板优先展示"需要人"的活，其次是系统健康与历史。它用领域术语，内部 ID 只在折叠细节里出现。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 720 200" role="img" aria-label="面板三问">
+      <defs><marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6f8099"/></marker></defs>
+      <rect x="14" y="70" width="190" height="64" rx="12" fill="#16263a" stroke="#2dd4bf"/>
+      <text x="109" y="98" text-anchor="middle" fill="#7fe0c8" font-size="14" font-weight="700">❓ 现在有事要我吗？</text>
+      <text x="109" y="118" text-anchor="middle" fill="#8b97a8" font-size="11">需要人行动的工单</text>
+      <rect x="265" y="70" width="190" height="64" rx="12" fill="#141b29" stroke="#5b9dff"/>
+      <text x="360" y="98" text-anchor="middle" fill="#9fc3ff" font-size="14" font-weight="700">❓ 系统健康吗？</text>
+      <text x="360" y="118" text-anchor="middle" fill="#8b97a8" font-size="11">问题 / 24h 活跃 / 执行器负载</text>
+      <rect x="516" y="70" width="190" height="64" rx="12" fill="#141b29" stroke="#a78bfa"/>
+      <text x="611" y="98" text-anchor="middle" fill="#c4b1ff" font-size="14" font-weight="700">❓ 这件活的历史？</text>
+      <text x="611" y="118" text-anchor="middle" fill="#8b97a8" font-size="11">Trigger→Eval→Ticket</text>
+      <line x1="204" y1="102" x2="262" y2="102" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a3)"/>
+      <line x1="455" y1="102" x2="513" y2="102" stroke="#6f8099" stroke-width="1.5" marker-end="url(#a3)"/>
+      <text x="360" y="44" text-anchor="middle" fill="#e7edf5" font-size="13" font-weight="700">打开面板，依次回答三个问题</text>
+    </svg>
+    <figcaption>面板的存在意义：依次回答"有事吗 / 健康吗 / 历史？"三问。</figcaption>
+  </div>
+
+  <h3>标签页（顺着工作流排）</h3>
+  <table>
+    <thead><tr><th>Tab</th><th>看什么</th></tr></thead>
+    <tbody>
+      <tr><td><b>Overview</b></td><td>待行动的工单、系统问题、近 24h 活跃数、执行器负载；每块的链接都指到详情页</td></tr>
+      <tr><td><b>Source</b></td><td>来源状态、配置问题、非零计数；被过滤触发与丢弃消息同 24h 窗口</td></tr>
+      <tr><td><b>Trigger</b></td><td>按"已订阅 / 评估中 / 24h 新触发 / 全部"筛选线程，每条线程看触发、决策、订阅</td></tr>
+      <tr><td><b>Eval</b></td><td>决策及其理由、命中的规则</td></tr>
+      <tr><td><b>Execution</b></td><td>执行器状态、暂停处理、按"开启/待启/执行中/等触发/已结束"筛选工单</td></tr>
+      <tr><td><b>Settings</b></td><td>来源 / Eval / 执行 / Prompts / 部署，每组带保存历史</td></tr>
+    </tbody>
+  </table>
+  <div class="callout plain">
+    <div class="lab">面板设计七原则（浓缩）</div>
+    聚焦要事；定义精确且互斥；一个概念一个地方；用领域术语；状态诚实（计数=链接列表长度）；默认安静（健康态不占空间）；控件一致。一句话：<b>只在"需要人"的地方出现，且直接把动作递到你手边</b>。
+  </div>
+</section>
+
+<!-- 8 -->
+<section id="s8">
+  <div class="sec-head"><div class="sec-num">8</div><h2>技术栈：一套克制的 TypeScript 工程</h2></div>
+  <div class="tl"><b>30 秒：</b>克制到只剩两个运行时依赖的 TypeScript 工程，宿主能力全来自 DeepSeek Harness。</div>
+  <div class="grid g2">
+    <div class="card"><h4>⚙️ 语言与运行</h4><p>TypeScript 6 + Node <b>22.19+ / 24+</b>；包管理 <b>pnpm 11.7</b>。仅两个运行时依赖：<span class="kbd">proper-lockfile</span>(文件锁) 与 <span class="kbd">zod 4</span>(校验)。</p></div>
+    <div class="card"><h4>🧱 宿主与插件</h4><p>全部能力来自 <b>@deepseek-ai/dsh-*</b> 系列 peer 依赖（Harness、Session、Tools、LLM、权限预设、客户端 UI 等），通过 <span class="kbd">cordis</span> 注入。</p></div>
+    <div class="card"><h4>🏗️ 构建与测试</h4><p><span class="kbd">tsdown</span> 打包、<span class="kbd">vitest 4</span> 测试、<span class="kbd">tsc --noEmit</span> 类型检查。<span class="kbd">pnpm check</span> = 类型 + 测试 + 构建一次性跑完。</p></div>
+    <div class="card"><h4>🖥️ 面板与存储</h4><p>面板用 <b>React 18</b>(自绘控件，不 import 宿主 UI 原语)；持久化是单个 <b>SQLite</b>(<span class="kbd">orchestrator.sqlite</span>)，由 Store 独占。</p></div>
+  </div>
+  <div class="legend" style="margin-top:14px">
+    <span><i style="background:#5b9dff"></i>核心层 core（无 I/O）</span>
+    <span><i style="background:#2dd4bf"></i>Engine 单一写入者</span>
+    <span><i style="background:#34d399"></i>Source 插件</span>
+    <span><i style="background:#a78bfa"></i>Executor</span>
+    <span><i style="background:#f5a623"></i>Web Panel</span>
+  </div>
+</section>
+
+<!-- 9 -->
+<section id="s9">
+  <div class="sec-head"><div class="sec-num">9</div><h2>快速开始：让一个 Agent 陪你装</h2></div>
+  <div class="tl"><b>30 秒：</b>让一个 Agent 陪你装，一次一问，先给完整计划再动手，密钥类步骤交给你亲手做。</div>
+  <p>安装步骤不少，所以官方让<b>你自己的编程 Agent</b>陪你做。对它说一句：<span class="kbd">读这个仓库的 SETUP.md，和我一起把 dsh-superagent 配起来</span>。它会一次问一个问题、先给完整计划再动手。</p>
+
+  <h3>SETUP 的"探针"命令（一次性跑，结果自己留着）</h3>
+  <div class="code">
+    <div class="cap">SETUP.md — 安装前先探测环境（原样摘录）</div>
+<pre><span class="cm"># 探测：缺啥就列入计划，不单独追问</span>
+node -v; pnpm -v; git --version; tmux -V; python3 --version
+gh --version | head -1; dsh --version
+gh api user --jq .login          <span class="cm"># 运营者自己的 GitHub 登录，作为问题5 的推荐</span>
+command -v lark-cli             <span class="cm"># 飞书 CLI（可选）</span>
+grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.patch.yml 2>/dev/null</pre>
+  </div>
+
+  <div class="grid g3">
+    <div class="card"><div class="ic">1️⃣</div><h4>探测环境</h4><p>一次性跑探针：node / pnpm / git / tmux / python3 / gh / dsh 版本，以及是否已登录。缺啥就列入计划，不单独追问。</p></div>
+    <div class="card"><div class="ic">2️⃣</div><h4>逐题收集</h4><p>按工作流顺序提问：① 来源(GitHub/飞书) ② 仓库 ③ 智能体账号 ④ 白名单 ⑤ checkout/提交身份 ⑥ 是否自动合并。每个都有"推荐答案"。</p></div>
+    <div class="card"><div class="ic">3️⃣</div><h4>计划→执行</h4><p>收集齐后发一条完整计划，你确认后才动手：先你做账号/CLI 类操作，再装并启动，最后按序存设置与 prompts。</p></div>
+  </div>
+
+  <div class="callout">
+    <div class="lab">门槛提示</div>
+    需要 Node 22.19+/24+、pnpm、git 2.32+、tmux、Python 3.8+、GitHub CLI 2.48+，以及指定版本范围的 DeepSeek Harness（含一个模型供应商）。飞书可选，但要单独建 bot 应用。决不在聊天里要密码/密钥——需要你亲手做的步骤会写成可复制命令交给你。
+  </div>
+  <p class="muted" style="font-size:13px">装好后试一下：用白名单里的账号，在仓库某个 Issue 下评论 <span class="kbd">@&lt;agent登录名&gt; &lt;你的请求&gt;</span>，约一分钟内 Overview 就会冒出一张工单。</p>
+</section>
+
+<!-- 10 -->
+<section id="s10">
+  <div class="sec-head"><div class="sec-num">10</div><h2>重要提醒 & 一句话总结</h2></div>
+  <div class="callout warn">
+    <div class="lab">读前必看</div>
+    ① 这是<b>研究原型，仅供参考，不是 DeepSeek 官方产品</b>。大量工程由编程 Agent 完成，可能含 bug，编码风格与工程实践可能不一致——用前请审阅、改造。<br>
+    ② 已为发布做改编，<b>不等于</b>其内部版本，也<b>不等于</b>论文《Exploring Super-agent Design》里描述的实现；文中一些设计是未来方向，本原型<b>尚未实现</b>。<br>
+    ③ 协议 <b>MIT</b>，可自由使用与修改。
+  </div>
+
+  <div class="card" style="border-color:var(--accent2);margin-top:8px">
+    <h4>🧭 它到底解决了什么？</h4>
+    <p style="color:#cbd5e1;font-size:14px">传统 Agent 是"问答机"；能为一个团队行动的 Agent 也可能"为一个团队制造噪音"。dsh-superagent 用一套<b>极简领域模型 + 严格授权 + 注意力经济学</b>，把"主动"关进笼子里：<span class="hl">只在被要求或被规则允许时动，只在人必须行动或能用结果时才出声</span>。它把"自动跑"和"不打扰人"这对矛盾，用工程纪律真正调和了——这正是它值得细读的地方。</p>
+  </div>
+
+  <div class="grid g4" style="margin-top:16px">
+    <div class="card" style="text-align:center"><div style="font-size:26px">🎯</div><h4>极简概念</h4><p>只保留工作必需的概念，业务需求变成属性或 prompt</p></div>
+    <div class="card" style="text-align:center"><div style="font-size:26px">🔐</div><h4>授权为先</h4><p>无 Mandate 不开工；白名单 / 规则 / 强度三重把关</p></div>
+    <div class="card" style="text-align:center"><div style="font-size:26px">🤫</div><h4>注意力经济</h4><p>价值 ≥ 注意力成本，否则砍掉；默认安静</p></div>
+    <div class="card" style="text-align:center"><div style="font-size:26px">🧱</div><h4>单一写入者</h4><p>依赖严格单向，Engine 独占领域写入，易推理易恢复</p></div>
+  </div>
+</section>
+
+<footer>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+    <span class="pill">deepseek-ai/dsh-superagent-prototype</span>
+    <span class="pill">MIT License</span>
+    <span class="pill">TypeScript · Node 22+ · DeepSeek Harness</span>
+    <span class="pill">首版 2026-10-31</span>
+  </div>
+  本页为基于公开 README 与 <span class="kbd">docs/000–008</span> 系列文档整理的解读，非官方文档。细节以仓库最新内容为准。代码片段来自仓库原文件，已精简标注。
+  <div style="margin-top:10px"><a href="https://github.com/deepseek-ai/dsh-superagent-prototype">→ 查看原仓库</a> · <a href="https://www.deepseek.com/en/harness/">→ DeepSeek Harness</a></div>
+</footer>
+
+</div>
+</body>
+</html>
