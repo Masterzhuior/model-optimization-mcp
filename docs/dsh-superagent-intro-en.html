@@ -145,6 +145,7 @@
 <nav class="toc"><div class="inner">
   <a href="#s1">① In one line</a>
   <a href="#s1b">★ Control plane &amp; peers</a>
+  <a href="#s1c">★ Plugin &amp; community analysis</a>
   <a href="#s2">② Philosophy</a>
   <a href="#s3">③ Domain model</a>
   <a href="#s4">④ Authorization</a>
@@ -322,6 +323,58 @@
   <div class="callout plain" style="margin-top:12px">
     <div class="lab">How it differs from "fleet dashboards"</div>
     Those (amux / Mission Control) are <b>bolt-on</b>: they sit outside existing agents (Claude Code / Codex), watching tmux, parsing output, sending "continue" — essentially observers. dsh-superagent is <b>native</b>: the Router/Worker split grows from inside the design, with a first-class domain model (Ticket / Thread / Mandate) and GitHub-native delivery (it replies right in the issue / PR). On top of that it systematizes "attention economy" — a step most bolt-on dashboards skip.
+  </div>
+</section>
+
+<!-- 1c: plugin deep-dive & community analysis -->
+<section id="s1c">
+  <div class="sec-head"><div class="sec-num">★</div><h2>Plugin deep-dive &amp; the community analysis landscape: what others said, and where the prototype really lands</h2></div>
+  <div class="tl"><b>30s:</b> The actually-installable package is a different thing, <b>dsh-super-agent</b> (Plugin Hub v0.0.6) — not the same as the prototype repo; and across the 2026 wave of discussion, the community broke its value into a few clear threads: "OS analogy / structure &gt; prompt / read the numbers with a discount / security criticism / proactivity calibrated to observe."</div>
+
+  <h3>① dsh-super-agent plugin vs the prototype repo: what differs</h3>
+  <p>First, separate two things: the <b>prototype repo</b> (<span class="kbd">dsh-superagent-prototype</span>, this article's spine, MIT, meant for reading source / modifying) and the <b>packaged plugin</b> (<b>dsh-super-agent</b>, Plugin Hub v0.0.6, Apache-2.0, install-and-run). The latter adds three more layers on top of the former:</p>
+  <table>
+    <thead><tr><th>Aspect</th><th>Prototype repo dsh-superagent-prototype</th><th>Packaged plugin dsh-super-agent</th></tr></thead>
+    <tbody>
+      <tr><td><b>Position</b></td><td>Research prototype / source readable & editable (MIT)</td><td>Install-and-run Bundle plugin (Apache-2.0)</td></tr>
+      <tr><td><b>Scenario presets</b></td><td>Only Worker preset (work tools)</td><td>execution mode × work scenario preset matrix: solo / team × delivery / research / optimization</td></tr>
+      <tr><td><b>Task protocol</b></td><td>Domain model Ticket / Thread, SQLite persistence</td><td>Adds an <b>event-sourced</b> task ledger — task tree, owner, attempts, commits, review, rework, acceptance, delivery, cancel all logged to JSONL; replayable / auditable</td></tr>
+      <tr><td><b>Web UI integration</b></td><td>Panel uses domain terms, basic Overview / Execution</td><td>Deeper integration: preset selector, session projection, combination immutability</td></tr>
+      <tr><td><b>Getting started</b></td><td>pnpm build + dsh plugin --profile superagent add "link:$PWD"</td><td>One-click from Plugin Hub, panel on port 3082 by default</td></tr>
+    </tbody>
+  </table>
+  <div class="callout plain">
+    <div class="lab">In one line</div>
+    The prototype repo is the reference implementation of "how to build this control plane"; dsh-super-agent is the <b>productized</b> version of the same idea: more scenario matrix, a replayable task ledger, and deeper panel integration. Read source / modify architecture in the former; use it directly in the latter.
+  </div>
+
+  <h3>② How the community analyzed it: a few clear consensuses</h3>
+  <div class="grid g2">
+    <div class="card"><h4>🖥️ OS analogy</h4><p>Router = interrupt controller / thread pool; Inline&amp;Spill = CPU cache (keep on hit, spill to main memory on overflow); speculative execution = branch prediction (do first, prove later); Watchdog = an external control loop. Once "multi-agent scheduling" is mapped to OS terms, many design decisions click into place.</p></div>
+    <div class="card"><h4>🧱 Structure &gt; prompt</h4><p>A neutral-prompt baseline <b>never</b> delegates proactively; Super-agent delegates because "delegation" is baked into structure and protocol — p95 fix time 15.7min vs 29.5min baseline. The gain comes from engineering structure, not prompt wording.</p></div>
+    <div class="card"><h4>🔢 Read numbers with a discount</h4><p>All performance numbers come from <b>synthetic load</b> + DeepSeek <b>self-testing</b>, with no independent replication yet. Cite them as "direction right, absolute value doubtful."</p></div>
+    <div class="card"><h4>🔒 Security criticism</h4><p>Three points raised most often: ① the Executor runs commands as the operator's OS user, with no approval; ② BYOM + cloud loop = a prompt-injection blast radius; ③ a GitHub dedicated account ≠ an OS dedicated account — isolation is incomplete.</p></div>
+    <div class="card"><h4>🤫 Proactivity calibrated to observe</h4><p>Community consensus: default "act without being asked" to <span class="kbd">observe</span> — a positive assessment is recorded but not actually worked; review the recorded Decisions, then open auto if warranted. The paper's "proactively opens a bug-fix PR" comes from an internal instance; the prototype requires a written rule first + observe default.</p></div>
+    <div class="card"><h4>🚀 Industry shifting to Agent Runtime</h4><p>Many group it with amux / Mission Control as the 2026 "Agent Runtime / control plane" wave — the focus moves from "a stronger single agent" to "how to let one screen drive a whole fleet of agents."</p></div>
+  </div>
+
+  <h3>③ Prototype vs paper: a precise landing table</h3>
+  <p>Draw the line between "done" and "paper direction" so the "not implemented" framing stops misleading — the skeleton is landed; some advanced mechanisms are "mechanism in, default off"; only a few are genuinely missing:</p>
+  <table>
+    <thead><tr><th>Capability</th><th>Status</th><th>Note (prototype reality)</th></tr></thead>
+    <tbody>
+      <tr><td><b>Two-layer / two-stage filter</b> (policy gate + model assessment)</td><td><span class="tag g">implemented</span></td><td>Eval's two-layer decision; gate only trusts allow-list / rules / Mandate</td></tr>
+      <tr><td><b>Subscription fast-path</b></td><td><span class="tag g">implemented</span></td><td>Messages on subscribed Threads bypass the gate straight to the Ticket (no new authority granted)</td></tr>
+      <tr><td><b>Inline &amp; Spill</b> (context keep / overflow)</td><td><span class="tag g">implemented</span></td><td>Context kept in Worker, overflow back to main session — mechanism works</td></tr>
+      <tr><td><b>Speculative execution</b></td><td><span class="tag y">mechanism in · off by default</span></td><td>Branch-prediction-style "do first, prove later" exists but is off by default, needs explicit config</td></tr>
+      <tr><td><b>Full-duplex</b></td><td><span class="tag y">approximated via 5s background</span></td><td>Approximated by the worker preset's "foreground command → background after 5s," not true full-duplex</td></tr>
+      <tr><td><b>Compute-state separation</b> (cloud compute / local state)</td><td><span class="tag r">not implemented</span></td><td>Paper direction, not in prototype</td></tr>
+      <tr><td><b>Watchdog judging progress</b></td><td><span class="tag r">hourly check only</span></td><td>Implemented as a periodic poll (looks in hourly), does not judge task progress / no self-healing</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <div class="lab">How to read this table</div>
+    Red ≠ failure: compute-state separation and Watchdog self-healing are "future directions" in the paper, explicitly marked not-done in the prototype; but the <b>control-plane skeleton (panel, Router, Workers, single writer, atomic claim, attention rules) is all genuinely implemented and runnable</b>. So this report's verdict: <b>it is not vaporware — it is a usable skeleton, with advanced autonomy filling in along the roadmap</b>.
   </div>
 </section>
 

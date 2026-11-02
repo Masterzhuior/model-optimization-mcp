@@ -145,6 +145,7 @@
 <nav class="toc"><div class="inner">
   <a href="#s1">① 一句话理解</a>
   <a href="#s1b">★ 控制面 &amp; 同类格局</a>
+  <a href="#s1c">★ 插件深挖 &amp; 社区分析</a>
   <a href="#s2">② 核心哲学</a>
   <a href="#s3">③ 领域模型</a>
   <a href="#s4">④ 授权模型</a>
@@ -322,6 +323,58 @@
   <div class="callout plain" style="margin-top:12px">
     <div class="lab">它和"舰队看板"的区别</div>
     那些（amux / Mission Control）是<b>外挂式</b>：架在已有 agent（Claude Code / Codex）外面，靠盯 tmux、解析输出、发 "continue" 来管，本质是观察者。dsh-superagent 是<b>原生式</b>：Router/Worker 拆分从设计内部就长出来，还带一等公民的领域模型（Ticket / Thread / Mandate）和 GitHub 原生交付（直接在 issue / PR 里回你）。加上它把"注意力经济"系统化了——外挂看板很少做这一步。
+  </div>
+</section>
+
+<!-- 1c: 插件深挖 & 社区分析全景 -->
+<section id="s1c">
+  <div class="sec-head"><div class="sec-num">★</div><h2>插件深挖 &amp; 社区分析全景：别人怎么看、原型到底落到哪</h2></div>
+  <div class="tl"><b>30 秒：</b>生态里真正可装的是另一个包 <b>dsh-super-agent</b>（Plugin Hub v0.0.6），和原型仓库不是一回事；而 2026 年这波讨论里，社区把它的价值拆成了"操作系统类比 / 结构 &gt; 提示词 / 数字要打折扣 / 安全批评 / 主动性校准到 observe"几条清晰线索。</div>
+
+  <h3>① dsh-super-agent 插件 vs 原型仓库：差异在哪</h3>
+  <p>先分清两样东西：<b>原型仓库</b>（<span class="kbd">dsh-superagent-prototype</span>，本文主线，MIT，面向读源码 / 自己改）和<b>打包插件</b>（<b>dsh-super-agent</b>，Plugin Hub v0.0.6，Apache-2.0，开箱即用）。后者在前者基础上额外做了三层封装：</p>
+  <table>
+    <thead><tr><th>维度</th><th>原型仓库 dsh-superagent-prototype</th><th>打包插件 dsh-super-agent</th></tr></thead>
+    <tbody>
+      <tr><td><b>定位</b></td><td>研究原型 / 源码可读可改（MIT）</td><td>开箱即用 Bundle 插件（Apache-2.0）</td></tr>
+      <tr><td><b>场景预置矩阵</b></td><td>仅 Worker preset（执行所需工具）</td><td>execution mode × work scenario 预设矩阵：solo / team × delivery / research / optimization</td></tr>
+      <tr><td><b>任务协议</b></td><td>领域模型 Ticket / Thread，SQLite 持久化</td><td>额外加了<b>事件溯源</b>的任务账本——任务树、owner、attempts、commits、review、rework、acceptance、delivery、cancel 全记成 JSONL，可重放 / 可审计</td></tr>
+      <tr><td><b>Web UI 集成</b></td><td>面板用领域术语，基础 Overview / Execution</td><td>更深集成：预置选择器、session 投影、组合不可变（immutability）</td></tr>
+      <tr><td><b>上手方式</b></td><td>pnpm build + dsh plugin --profile superagent add "link:$PWD"</td><td>Plugin Hub 一键安装，面板默认端口 3082</td></tr>
+    </tbody>
+  </table>
+  <div class="callout plain">
+    <div class="lab">一句话</div>
+    原型仓库是"怎么造这套控制面"的参考实现；dsh-super-agent 是把同一套思路<b>产品化</b>的成品：多了场景矩阵、可重放的任务账本、和更深的面板集成。读源码改架构看前者，直接用看后者。
+  </div>
+
+  <h3>② 社区怎么分析它：几条清晰共识</h3>
+  <div class="grid g2">
+    <div class="card"><h4>🖥️ 操作系统类比</h4><p>Router = 中断控制器 / 线程池；Inline&amp;Spill = CPU 缓存（命中留、溢出吐回主存）；speculative execution = 分支预测（先干后证）；Watchdog = 外部控制循环。把"多 agent 调度"套进 OS 术语后，很多设计决策立刻说得通。</p></div>
+    <div class="card"><h4>🧱 结构 &gt; 提示词</h4><p>中性提示词基线<b>从不</b>主动委派；Super-agent 因为把"委派"写进了结构与协议，p95 修复时间 15.7min vs 基线 29.5min。提升来自工程结构，不是 prompt 措辞。</p></div>
+    <div class="card"><h4>🔢 数字要打折扣</h4><p>所有性能数字都来自<b>合成负载</b> + DeepSeek <b>自测</b>，暂无独立复现。引用时按"方向正确、绝对值存疑"读。</p></div>
+    <div class="card"><h4>🔒 安全批评</h4><p>三点最常被提：① 执行器以运营者 OS 用户身份、免审批跑命令；② BYOM + 云端循环 = 提示注入的爆炸半径；③ GitHub 专用账号 ≠ OS 专用账号，隔离不彻底。</p></div>
+    <div class="card"><h4>🤫 主动性校准到 observe</h4><p>社区共识：把"未请求就动手"默认关成 <span class="kbd">observe</span>——研判"该接"只记录不真正开工，看完被记下的 Decision 再酌情开 auto。论文里那种"主动提 bug 修复 PR"来自内部实例，原型要求先有书面规则 + observe 默认。</p></div>
+    <div class="card"><h4>🚀 行业在转向 Agent Runtime</h4><p>不少人把它和 amux / Mission Control 一起归类为 2026 年的"Agent Runtime / 控制面"浪潮——重点从"更强的单 agent"转向"怎么让人用一个界面管一队 agent"。</p></div>
+  </div>
+
+  <h3>③ 原型 vs 论文：一张精确落地表</h3>
+  <p>把"已做"和"论文方向"画清，避免再被"未实现"误导——骨架已落地，部分高级机制是"机制在、默认关"，只有少数是真没做：</p>
+  <table>
+    <thead><tr><th>能力</th><th>状态</th><th>说明（原型真实情况）</th></tr></thead>
+    <tbody>
+      <tr><td><b>双层 / 两阶段过滤</b>（策略门禁 + 模型研判）</td><td><span class="tag g">已实现</span></td><td>Eval 的两层决策，门禁只认白名单 / 规则 / 授权书</td></tr>
+      <tr><td><b>订阅快路径</b></td><td><span class="tag g">已实现</span></td><td>被订阅线程的消息绕过门禁直达工单（不授新权）</td></tr>
+      <tr><td><b>Inline &amp; Spill</b>（上下文留 / 溢）</td><td><span class="tag g">已实现</span></td><td>上下文在 Worker 内留、溢出回主会话，机制跑通</td></tr>
+      <tr><td><b>投机执行 speculative</b></td><td><span class="tag y">机制在 · 默认关</span></td><td>分支预测式"先干后证"的机制存在，但默认不开启，需显式配置</td></tr>
+      <tr><td><b>全双工 full-duplex</b></td><td><span class="tag y">5s 后台近似</span></td><td>用 worker preset 的"前台命令超 5s 转后台"近似，并非真全双工</td></tr>
+      <tr><td><b>计算-状态分离</b>（云侧算力 / 本地状态）</td><td><span class="tag r">未实现</span></td><td>论文方向，原型未做</td></tr>
+      <tr><td><b>Watchdog 判进度</b></td><td><span class="tag r">仅每小时检查</span></td><td>实现的是定时轮询（每小时看一眼），不判断任务进度 / 不自愈</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <div class="lab">读这张表的态度</div>
+    红色 ≠ 失败：计算-状态分离、Watchdog 自愈属于论文"未来方向"，原型明确标注未做；但<b>控制面骨架（面板、Router、Worker、单写者、原子认领、注意力规则）全部真实落地可跑</b>。所以本报告的判断是：<b>它不是画饼，是已经能用的骨架，高级自主能力按路线图逐步补</b>。
   </div>
 </section>
 
