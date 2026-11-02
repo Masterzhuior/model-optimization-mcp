@@ -233,7 +233,7 @@
         <text x="646" y="632" fill="#93a1b5" font-size="11.5">Engine single-writer + Assignment atomic claim = Mission Control's SQLite WAL single-writer + atomic UPDATE claim</text>
       </g>
     </svg>
-    <figcaption>The real increment isn't "issue → PR"; it's this <b>control plane</b>: one surface driving many concurrent sessions. The full high-density set (lifecycle / attention gate / event-sourced ledger / peer map / OS analogy) lives in <a href="dsh-superagent-atlas-zh.html">dsh-superagent architecture atlas →</a></figcaption>
+    <figcaption>The real increment isn't "issue → PR"; it's this <b>control plane</b>: one surface driving many concurrent sessions. The full high-density set (lifecycle / attention gate / event-sourced ledger / peer map / OS analogy) lives in <a href="dsh-superagent-atlas-en.html">dsh-superagent architecture atlas →</a></figcaption>
   </div>
 
   <p style="margin-top:20px">Drop that abstract idea into a repo and you get the familiar "issue → PR" pipeline — but that is only the <b>execution layer</b> of the control plane. Someone on the allow-list comments <span class="kbd">@agent fix this bug</span> on an issue; the agent checks out code in its own directory, changes it, verifies it, then pushes a PR right back into that same issue. It mostly leaves you alone in between — until it needs your decision, or the work is done.</p>

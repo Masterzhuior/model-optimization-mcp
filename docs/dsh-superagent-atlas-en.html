@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-superagent Architecture Atlas · See the control plane at a glance</title>
+<style>
+  :root{
+    --bg:#0a0e16; --surface:#141b29; --surface2:#1b2435;
+    --border:#243044; --border2:#2e3b52; --text:#e7edf5; --muted:#93a1b5;
+    --accent:#5b9dff; --accent2:#2dd4bf; --warn:#f5a623; --danger:#ff6b6b;
+    --green:#34d399; --purple:#a78bfa; --pink:#f472b6;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%,rgba(91,157,255,.12),transparent 60%),
+               radial-gradient(900px 500px at 0% 0%,rgba(45,212,191,.10),transparent 55%),var(--bg);
+    color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 22px 100px}
+  header.hero{padding:60px 22px 10px;max-width:1180px;margin:0 auto}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;letter-spacing:.5px;color:var(--accent2);
+    border:1px solid var(--border2);background:rgba(45,212,191,.07);padding:6px 12px;border-radius:999px}
+  h1{font-size:clamp(28px,4.2vw,46px);line-height:1.1;margin:16px 0 8px;letter-spacing:-.5px;
+    background:linear-gradient(100deg,#fff 10%,#9fc3ff 60%,#7af0e0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{font-size:17px;color:var(--muted);max-width:820px;margin:6px 0 0}
+  .toc{display:flex;flex-wrap:wrap;gap:10px;margin:30px 0 10px}
+  .toc a{font-size:13px;color:var(--accent);border:1px solid var(--border2);background:var(--surface);
+    padding:7px 13px;border-radius:10px}
+  .factstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:34px 0 10px}
+  .fact{background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--border);
+    border-radius:14px;padding:16px 18px}
+  .fact b{display:block;font-size:22px;color:var(--accent2);margin-bottom:4px}
+  .fact span{font-size:13px;color:var(--muted)}
+  section.card{background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--border);
+    border-radius:18px;padding:26px 26px 30px;margin:34px 0;box-shadow:var(--shadow)}
+  .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .sec-num{font-size:13px;font-weight:700;color:#0a0e16;background:var(--warn);border-radius:8px;padding:5px 10px}
+  h2{font-size:22px;margin:0}
+  h3{font-size:15px;color:var(--muted);font-weight:500;margin:4px 0 18px}
+  .diagram{width:100%;height:auto;display:block;background:rgba(10,14,22,.55);border:1px solid var(--border);
+    border-radius:14px;padding:8px}
+  .takeaway{margin-top:18px;border-left:3px solid var(--accent2);background:rgba(45,212,191,.06);
+    padding:12px 16px;border-radius:0 10px 10px 0;font-size:14.5px;color:var(--text)}
+  .takeaway b{color:var(--accent2)}
+  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:40px}
+  a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="kicker">◆ Visual atlas · companion to the dsh-superagent deep-dive report</div>
+  <h1>dsh-superagent Architecture Atlas</h1>
+  <p class="subtitle">See the control-plane design — one screen orchestrating many sessions — at a glance. This atlas does not retell the paper; it only draws the most critical structure, flows, protocols, and competitive landscape. After these 6 diagrams, the whole design should be clear.</p>
+  <div class="toc">
+    <a href="#d1">① Control-plane core</a>
+    <a href="#d2">② End-to-end lifecycle</a>
+    <a href="#d3">③ Attention gate (two-layer filter)</a>
+    <a href="#d4">④ Event-sourced task ledger</a>
+    <a href="#d5">⑤ Competitive landscape map</a>
+    <a href="#d6">⑥ Operating-system analogy</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="factstrip">
+    <div class="fact"><b>1 → N</b><span>Behind one web panel (the only screen a human sees) sit 1 resident Router + N context-isolated Workers.</span></div>
+    <div class="fact"><b>Single-writer</b><span>Engine single-writer + atomic Assignment claim prevents concurrent double-writes — the same pattern as Mission Control's SQLite WAL.</span></div>
+    <div class="fact"><b>observe</b><span>Default 'assess but don't actually start'; the paper's proactive PR proposals come from internal instances — the prototype requires written rules + observe.</span></div>
+    <div class="fact"><b>Shipped</b><span>The control-plane skeleton (panel / Router / Worker / single-writer / atomic claim / attention rules) really runs — not vaporware.</span></div>
+  </div>
+
+  <!-- ============ D1 ============ -->
+  <section class="card" id="d1">
+    <div class="sec-head"><div class="sec-num">①</div><h2>Control-plane core: one screen, many sessions</h2></div>
+    <h3>The human faces one Agent; internally the system fully separates "routing" from "execution" and holds exclusive write authority.</h3>
+    <svg class="diagram" viewBox="0 0 1100 660" role="img" aria-label="Control-plane core architecture diagram">
+      <defs>
+        <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+        <marker id="ard" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f472b6"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- human + panel -->
+        <rect x="430" y="20" width="240" height="86" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="550" y="48" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">👤 HUMAN</text>
+        <text x="550" y="74" text-anchor="middle" font-size="15" font-weight="700">One web panel (the only screen)</text>
+        <text x="550" y="94" text-anchor="middle" fill="#93a1b5" font-size="11.5">Human speaks only here, sees results only here</text>
+
+        <!-- router -->
+        <rect x="380" y="150" width="340" height="92" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="550" y="180" text-anchor="middle" fill="#5b9dff" font-size="15" font-weight="800">Router · resident front door</text>
+        <text x="550" y="202" text-anchor="middle" fill="#93a1b5" font-size="12">routes only · light model · may run without Bash</text>
+        <text x="550" y="222" text-anchor="middle" fill="#93a1b5" font-size="12">classify / split tasks / unify results back to human</text>
+
+        <!-- engine bar -->
+        <rect x="190" y="288" width="720" height="58" rx="12" fill="#241c0e" stroke="#f5a623" stroke-width="1.8"/>
+        <text x="550" y="312" text-anchor="middle" fill="#f5a623" font-size="14.5" font-weight="800">Single-writer Engine — serializes all writes</text>
+        <text x="550" y="334" text-anchor="middle" fill="#93a1b5" font-size="12">Atomic Assignment claim: first writer wins, no concurrent double-writes</text>
+
+        <!-- workers -->
+        <g>
+          <rect x="60" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+          <text x="165" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #1</text>
+          <text x="165" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">context-isolated execution unit</text>
+          <text x="165" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">runs tools / edits code / calls APIs</text>
+          <text x="165" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">reports only to Router</text>
+          <text x="165" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">(never talks to human directly)</text>
+        </g>
+        <g>
+          <rect x="310" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+          <text x="415" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #2</text>
+          <text x="415" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">context-isolated execution unit</text>
+          <text x="415" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">runs tools / edits code / calls APIs</text>
+          <text x="415" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">reports only to Router</text>
+          <text x="415" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">(never talks to human directly)</text>
+        </g>
+        <g>
+          <rect x="560" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+          <text x="665" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #3</text>
+          <text x="665" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">context-isolated execution unit</text>
+          <text x="665" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">runs tools / edits code / calls APIs</text>
+          <text x="665" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">reports only to Router</text>
+          <text x="665" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">(never talks to human directly)</text>
+        </g>
+        <g>
+          <rect x="810" y="408" width="210" height="150" rx="12" fill="#13202b" stroke="#2dd4bf" stroke-width="1.4" stroke-dasharray="6 4"/>
+          <text x="915" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #k</text>
+          <text x="915" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">…horizontally scalable</text>
+          <text x="915" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">scales elastically per task</text>
+          <text x="915" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">reports only to Router</text>
+        </g>
+
+        <!-- dashed boundary: one agent to human -->
+        <rect x="40" y="8" width="1020" height="600" rx="20" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="9 6" opacity=".55"/>
+        <text x="58" y="26" fill="#a78bfa" font-size="12" font-weight="700" opacity=".9">Human sees only one Agent (internal routing + execution are transparent)</text>
+
+        <!-- connectors -->
+        <line x1="550" y1="106" x2="550" y2="150" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="550" y1="242" x2="550" y2="288" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="350" y1="346" x2="165" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="450" y1="346" x2="415" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="650" y1="346" x2="665" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="750" y1="346" x2="915" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <!-- workers report back (dashed pink) -->
+        <path d="M165,408 C 165,360 380,330 380,242" fill="none" stroke="#f472b6" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ard)"/>
+        <path d="M915,408 C 915,360 720,330 720,242" fill="none" stroke="#f472b6" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ard)"/>
+
+        <!-- left callout: attention rules -->
+        <g>
+          <rect x="40" y="588" width="430" height="64" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="56" y="610" fill="#f472b6" font-size="12.5" font-weight="700">Attention rules (in the system, not in the prompt)</text>
+          <text x="56" y="632" fill="#93a1b5" font-size="11.5">① Act only when authorized / team rules allow  ② Speak only when human must decide or a usable result exists</text>
+        </g>
+        <!-- right callout: consensus -->
+        <g>
+          <rect x="630" y="588" width="430" height="64" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="646" y="610" fill="#f5a623" font-size="12.5" font-weight="700">Consensus pattern (independently reinvented)</text>
+          <text x="646" y="632" fill="#93a1b5" font-size="11.5">Engine single-writer + atomic Assignment claim = Mission Control's SQLite WAL single-writer + atomic UPDATE claim</text>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>Core takeaway:</b> decouple "human faces an Agent" from "system runs sessions". Router is the resident global coordinator that routes but never executes; Worker is a context-isolated execution unit that reports only to Router; Engine holds exclusive write authority via single-writer + atomic claim. The human always sees one unified Agent.</div>
+  </section>
+
+  <!-- ============ D2 ============ -->
+  <section class="card" id="d2">
+    <div class="sec-head"><div class="sec-num">②</div><h2>End-to-end lifecycle: how one message becomes results from N isolated sessions</h2></div>
+    <h3>Human sends one line → Router splits → multiple Workers run in parallel in isolated contexts → Router unifies into one stream back to the panel.</h3>
+    <svg class="diagram" viewBox="0 0 1100 540" role="img" aria-label="End-to-end lifecycle diagram">
+      <defs>
+        <marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- human -->
+        <rect x="30" y="220" width="150" height="100" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="105" y="262" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">👤 HUMAN</text>
+        <text x="105" y="288" text-anchor="middle" font-size="13">one line</text>
+        <text x="105" y="308" text-anchor="middle" fill="#93a1b5" font-size="11.5">"fix issue #12"</text>
+
+        <!-- router classify -->
+        <rect x="220" y="200" width="170" height="120" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="305" y="240" text-anchor="middle" fill="#5b9dff" font-size="14" font-weight="800">Router</text>
+        <text x="305" y="262" text-anchor="middle" fill="#93a1b5" font-size="12">classify / split</text>
+        <text x="305" y="284" text-anchor="middle" fill="#93a1b5" font-size="12">build task tree</text>
+        <text x="305" y="306" text-anchor="middle" fill="#93a1b5" font-size="11.5">estimate deps &amp; parallelism</text>
+
+        <!-- tasks -->
+        <rect x="430" y="90" width="120" height="46" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="490" y="118" text-anchor="middle" font-size="13">Task A · reproduce</text>
+        <rect x="430" y="225" width="120" height="46" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="490" y="253" text-anchor="middle" font-size="13">Task B · fix root cause</text>
+        <rect x="430" y="360" width="120" height="46" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="490" y="388" text-anchor="middle" font-size="13">Task C · add tests</text>
+
+        <!-- workers -->
+        <rect x="600" y="70" width="160" height="86" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="680" y="104" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Worker #A</text>
+        <text x="680" y="126" text-anchor="middle" fill="#93a1b5" font-size="11.5">isolated context</text>
+        <rect x="600" y="205" width="160" height="86" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="680" y="239" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Worker #B</text>
+        <text x="680" y="261" text-anchor="middle" fill="#93a1b5" font-size="11.5">isolated context</text>
+        <rect x="600" y="340" width="160" height="86" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="680" y="374" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Worker #C</text>
+        <text x="680" y="396" text-anchor="middle" fill="#93a1b5" font-size="11.5">isolated context</text>
+
+        <!-- unify router -->
+        <rect x="810" y="200" width="160" height="120" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="890" y="240" text-anchor="middle" fill="#5b9dff" font-size="14" font-weight="800">Router unifies</text>
+        <text x="890" y="262" text-anchor="middle" fill="#93a1b5" font-size="11.5">single-writer serializes writes</text>
+        <text x="890" y="284" text-anchor="middle" fill="#93a1b5" font-size="11.5">unify into one stream</text>
+        <text x="890" y="306" text-anchor="middle" fill="#93a1b5" font-size="11.5">dedupe / order</text>
+
+        <!-- panel back to human -->
+        <rect x="1000" y="220" width="80" height="100" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="1040" y="262" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">Panel</text>
+        <text x="1040" y="286" text-anchor="middle" font-size="11.5">unified stream</text>
+        <text x="1040" y="306" text-anchor="middle" fill="#93a1b5" font-size="10.5">human sees only this</text>
+
+        <!-- connectors -->
+        <line x1="180" y1="270" x2="220" y2="270" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar2)"/>
+        <line x1="390" y1="248" x2="430" y2="113" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="390" y1="270" x2="430" y2="248" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="390" y1="292" x2="430" y2="383" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="550" y1="113" x2="600" y2="113" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="550" y1="248" x2="600" y2="248" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="550" y1="383" x2="600" y2="383" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="760" y1="113" x2="810" y2="248" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="760" y1="248" x2="810" y2="260" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="760" y1="383" x2="810" y2="292" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="970" y1="270" x2="1000" y2="270" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar2)"/>
+
+        <!-- isolation boundary -->
+        <rect x="588" y="58" width="184" height="380" rx="14" fill="none" stroke="#2dd4bf" stroke-width="1.3" stroke-dasharray="7 5" opacity=".5"/>
+        <text x="680" y="50" text-anchor="middle" fill="#2dd4bf" font-size="11.5" font-weight="700" opacity=".9">context-isolation boundary (no cross-contamination)</text>
+
+        <!-- observe/auto note -->
+        <g>
+          <rect x="600" y="450" width="370" height="56" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="616" y="472" fill="#f472b6" font-size="12.5" font-weight="700">Every Worker passes the attention gate before acting</text>
+          <text x="616" y="494" fill="#93a1b5" font-size="11.5">default observe (assess, don't act); only auto truly starts when authorized → see ③</text>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>Key point:</b> parallelism comes from "split + isolated context"; consistency comes from "Router single-writer serializes writes". The human needn't know how many sessions run or their order — they only receive one deduplicated, ordered stream.</div>
+  </section>
+
+  <!-- ============ D3 ============ -->
+  <section class="card" id="d3">
+    <div class="sec-head"><div class="sec-num">③</div><h2>Attention gate: two-layer filter deciding "should I take it, and how"</h2></div>
+    <h3>Layer 1 is a hard gate (policy / authorization), Layer 2 is a soft assessment (model judgment). Subscribed threads take a fast path around the gate, but gain no new authority.</h3>
+    <svg class="diagram" viewBox="0 0 1100 660" role="img" aria-label="Attention gate two-layer filter diagram">
+      <defs>
+        <marker id="ar3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+        <marker id="arg" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#ff6b6b"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- incoming -->
+        <rect x="430" y="20" width="240" height="56" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="550" y="54" text-anchor="middle" font-size="14" font-weight="700">Incoming signal (issue / PR / message / scheduled)</text>
+
+        <!-- layer1 gate -->
+        <rect x="60" y="150" width="470" height="200" rx="14" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="295" y="180" text-anchor="middle" fill="#5b9dff" font-size="15" font-weight="800">Layer 1 · Policy gate (hard)</text>
+        <text x="90" y="212" fill="#93a1b5" font-size="12.5">Any one of three inputs grants passage:</text>
+        <text x="90" y="238" font-size="13">• allow-list / explicit instruction</text>
+        <text x="90" y="262" font-size="13">• written team rules</text>
+        <text x="90" y="286" font-size="13">• Mandate (authorization)</text>
+        <rect x="90" y="312" width="410" height="26" rx="8" fill="#0f1a2b" stroke="#2e3b52"/>
+        <text x="295" y="330" text-anchor="middle" fill="#93a1b5" font-size="11.5">No match → reject, log only (no action)</text>
+
+        <!-- layer2 assess -->
+        <rect x="570" y="150" width="470" height="200" rx="14" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="805" y="180" text-anchor="middle" fill="#2dd4bf" font-size="15" font-weight="800">Layer 2 · Model assessment (soft)</text>
+        <text x="600" y="212" fill="#93a1b5" font-size="12.5">Assess "should I take it, how":</text>
+        <text x="600" y="238" font-size="13">• is the signal truly relevant</text>
+        <text x="600" y="262" font-size="13">• is it within authorization</text>
+        <text x="600" y="286" font-size="13">• observe or auto</text>
+        <rect x="600" y="312" width="410" height="26" rx="8" fill="#0c2b27" stroke="#2e3b52"/>
+        <text x="805" y="330" text-anchor="middle" fill="#93a1b5" font-size="11.5">Emits a Decision record (observe / auto)</text>
+
+        <!-- decision diamonds -->
+        <polygon points="295,400 345,440 295,480 245,440" fill="#241c0e" stroke="#f5a623" stroke-width="1.6"/>
+        <text x="295" y="444" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">Authorized?</text>
+        <polygon points="805,400 855,440 805,480 755,440" fill="#241c0e" stroke="#f5a623" stroke-width="1.6"/>
+        <text x="805" y="444" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">Take it?</text>
+
+        <!-- subscribe fast path -->
+        <rect x="430" y="400" width="240" height="56" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="6 4"/>
+        <text x="550" y="424" text-anchor="middle" font-size="12.5" font-weight="700">Subscription fast path</text>
+        <text x="550" y="444" text-anchor="middle" fill="#93a1b5" font-size="11">Subscribed-thread messages → bypass gate, go straight to ticket</text>
+
+        <!-- outcomes -->
+        <rect x="60" y="540" width="220" height="70" rx="12" fill="#241015" stroke="#ff6b6b" stroke-width="1.6"/>
+        <text x="170" y="572" text-anchor="middle" fill="#ff6b6b" font-size="13" font-weight="700">Reject · log only</text>
+        <text x="170" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">no action, no trace pollution</text>
+
+        <rect x="320" y="540" width="220" height="70" rx="12" fill="#0c2b27" stroke="#34d399" stroke-width="1.6"/>
+        <text x="430" y="572" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">observe</text>
+        <text x="430" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">assess only, log the Decision</text>
+
+        <rect x="580" y="540" width="220" height="70" rx="12" fill="#0c2b27" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="690" y="572" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="700">auto (truly starts)</text>
+        <text x="690" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">actually executes once authorized</text>
+
+        <rect x="840" y="540" width="220" height="70" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="950" y="572" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="700">back to Router</text>
+        <text x="950" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">dedupe &amp; summarize to human</text>
+
+        <!-- connectors -->
+        <line x1="550" y1="76" x2="295" y2="150" stroke="#93a1b5" stroke-width="1.8" marker-end="url(#ar3)"/>
+        <line x1="550" y1="76" x2="805" y2="150" stroke="#93a1b5" stroke-width="1.8" marker-end="url(#ar3)"/>
+        <line x1="295" y1="350" x2="295" y2="400" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar3)"/>
+        <line x1="805" y1="350" x2="805" y2="400" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar3)"/>
+        <line x1="295" y1="480" x2="170" y2="540" stroke="#ff6b6b" stroke-width="1.6" marker-end="url(#arg)"/>
+        <line x1="295" y1="440" x2="430" y2="440" stroke="#93a1b5" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <line x1="805" y1="440" x2="690" y2="540" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#ar3)"/>
+        <line x1="550" y1="456" x2="430" y2="540" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar3)"/>
+        <line x1="430" y1="570" x2="690" y2="572" stroke="#93a1b5" stroke-width="1.3" stroke-dasharray="4 4"/>
+        <line x1="690" y1="572" x2="840" y2="572" stroke="#93a1b5" stroke-width="1.3" stroke-dasharray="4 4"/>
+
+        <!-- legend attention rules -->
+        <g>
+          <rect x="60" y="624" width="1000" height="0" rx="0" fill="none"/>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>Design point:</b> the gate is "hard" (only allow-list / rules / mandate, blocking every unauthorized action); assessment is "soft" (model judges relevance and approach). Everything defaults to <b>observe</b> — only the Decision is logged, and the human decides to enable auto after review. This cages "proactivity" inside an auditable box, which is why the paper's "proactively propose a bug-fix PR" can only happen in the prototype with written rules + observe by default.</div>
+  </section>
+
+  <!-- ============ D4 ============ -->
+  <section class="card" id="d4">
+    <div class="sec-head"><div class="sec-num">④</div><h2>Event-sourced task ledger: every task is a replayable, auditable JSONL</h2></div>
+    <h3>A task is not a field in a state machine, but a stream of append-only events. At any moment you can replay to restore state, assign blame, or roll back.</h3>
+    <svg class="diagram" viewBox="0 0 1100 380" role="img" aria-label="Event-sourced task ledger lifecycle diagram">
+      <defs>
+        <marker id="ar4" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- nodes -->
+        <g>
+          <rect x="20" y="120" width="110" height="70" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+          <text x="75" y="150" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="800">Create</text>
+          <text x="75" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">create</text>
+        </g>
+        <g>
+          <rect x="155" y="120" width="110" height="70" rx="10" fill="#241c0e" stroke="#f5a623" stroke-width="1.6"/>
+          <text x="210" y="150" text-anchor="middle" fill="#f5a623" font-size="13" font-weight="800">Assign</text>
+          <text x="210" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">atomic claim</text>
+        </g>
+        <g>
+          <rect x="290" y="120" width="110" height="70" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+          <text x="345" y="150" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Execute</text>
+          <text x="345" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">Worker runs</text>
+        </g>
+        <g>
+          <rect x="425" y="120" width="110" height="70" rx="10" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+          <text x="480" y="150" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="800">Review</text>
+          <text x="480" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">review</text>
+        </g>
+        <g>
+          <rect x="560" y="120" width="110" height="70" rx="10" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+          <text x="615" y="150" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="800">Accept</text>
+          <text x="615" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">accept</text>
+        </g>
+        <g>
+          <rect x="695" y="120" width="110" height="70" rx="10" fill="#0c2b27" stroke="#34d399" stroke-width="1.6"/>
+          <text x="750" y="150" text-anchor="middle" fill="#34d399" font-size="13" font-weight="800">Deliver</text>
+          <text x="750" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">deliver</text>
+        </g>
+        <g>
+          <rect x="830" y="120" width="120" height="70" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+          <text x="890" y="150" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="800">Close</text>
+          <text x="890" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">close / cancel</text>
+        </g>
+        <g>
+          <rect x="965" y="120" width="120" height="70" rx="10" fill="#241015" stroke="#ff6b6b" stroke-width="1.4" stroke-dasharray="6 4"/>
+          <text x="1025" y="150" text-anchor="middle" fill="#ff6b6b" font-size="12.5" font-weight="800">Cancel</text>
+          <text x="1025" y="172" text-anchor="middle" fill="#93a1b5" font-size="10">can abort mid-way</text>
+        </g>
+
+        <!-- main flow arrows -->
+        <line x1="130" y1="155" x2="155" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="265" y1="155" x2="290" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="400" y1="155" x2="425" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="535" y1="155" x2="560" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="670" y1="155" x2="695" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="805" y1="155" x2="830" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="950" y1="155" x2="965" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+
+        <!-- rework loop -->
+        <path d="M480,190 C 480,250 345,250 345,190" fill="none" stroke="#f472b6" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ar4)"/>
+        <text x="412" y="262" text-anchor="middle" fill="#f472b6" font-size="11.5" font-weight="700">Rework (review fails → back to Execute, attempts logged)</text>
+
+        <!-- event ledger panel -->
+        <rect x="20" y="300" width="1065" height="64" rx="12" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="36" y="324" fill="#2dd4bf" font-size="12.5" font-weight="700">Event-sourced JSONL ledger (each node = one append-only event)</text>
+        <text x="36" y="348" fill="#93a1b5" font-size="11.5">task tree · owner · attempts · commits · review · rework · acceptance · delivery · cancel → replay to restore state / audit for accountability / roll back to a point</text>
+      </g>
+    </svg>
+    <div class="takeaway"><b>Why events, not state:</b> record "task progress" as an immutable event stream, not an overwritable field. Benefits — replay on failure (which step, who, why), audit (every action has an owner and a basis), rollback (replay to before an event). This is also the extra layer the dsh-super-agent plugin adds over the prototype repo.</div>
+  </section>
+
+  <!-- ============ D5 ============ -->
+  <section class="card" id="d5">
+    <div class="sec-head"><div class="sec-num">⑤</div><h2>Competitive landscape map: 2026 control-plane / Agent Runtime tools</h2></div>
+    <h3>Two axes: vertical "native control plane vs bolt-on"; horizontal "has single-writer / atomic-claim consensus". Top-right is the right answer for this wave.</h3>
+    <svg class="diagram" viewBox="0 0 1100 640" role="img" aria-label="Competitive landscape map">
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- axes -->
+        <line x1="120" y1="540" x2="1000" y2="540" stroke="#3a4a63" stroke-width="2"/>
+        <line x1="120" y1="60" x2="120" y2="540" stroke="#3a4a63" stroke-width="2"/>
+        <text x="560" y="588" text-anchor="middle" fill="#93a1b5" font-size="13">→ single-writer / atomic-claim consensus (stronger right)</text>
+        <text x="46" y="300" text-anchor="middle" fill="#93a1b5" font-size="13" transform="rotate(-90 46 300)">native control plane (top) ↑ / bolt-on (bottom)</text>
+
+        <!-- quadrant tint -->
+        <rect x="560" y="60" width="440" height="480" fill="rgba(45,212,191,.05)"/>
+        <rect x="120" y="300" width="880" height="240" fill="rgba(91,157,255,.04)"/>
+
+        <!-- plotted tools -->
+        <g>
+          <circle cx="800" cy="150" r="9" fill="#2dd4bf"/>
+          <text x="818" y="146" font-size="13.5" font-weight="800" fill="#2dd4bf">dsh-superagent</text>
+          <text x="818" y="164" font-size="11" fill="#93a1b5">native control plane · pluginized · single-writer + atomic claim</text>
+        </g>
+        <g>
+          <circle cx="740" cy="210" r="9" fill="#34d399"/>
+          <text x="758" y="206" font-size="13.5" font-weight="800" fill="#34d399">Mission Control</text>
+          <text x="758" y="224" font-size="11" fill="#93a1b5">~5–6k★ (mid-2026) · zero deps · SQLite WAL single-writer</text>
+        </g>
+        <g>
+          <circle cx="855" cy="250" r="9" fill="#a78bfa"/>
+          <text x="873" y="246" font-size="13.5" font-weight="800" fill="#a78bfa">KiroCrew</text>
+          <text x="873" y="264" font-size="11" fill="#93a1b5">AWS-open-sourced · Apache-2.0 · Kiro CLI + ACP orchestration</text>
+        </g>
+        <g>
+          <circle cx="300" cy="430" r="9" fill="#5b9dff"/>
+          <text x="318" y="426" font-size="13.5" font-weight="800" fill="#5b9dff">amux</text>
+          <text x="318" y="444" font-size="11" fill="#93a1b5">MIT · bolt-on for Claude/Codex/Gemini · per session</text>
+        </g>
+        <g>
+          <circle cx="430" cy="480" r="9" fill="#5b9dff"/>
+          <text x="448" y="476" font-size="13.5" font-weight="800" fill="#5b9dff">Ashlr AO</text>
+          <text x="448" y="494" font-size="11" fill="#93a1b5">local-first command center (bolt-on)</text>
+        </g>
+        <g>
+          <circle cx="620" cy="400" r="9" fill="#f5a623"/>
+          <text x="638" y="396" font-size="13.5" font-weight="800" fill="#f5a623">GitHub Copilot</text>
+          <text x="638" y="414" font-size="11" fill="#93a1b5">cloud agent automation (in-platform loop)</text>
+        </g>
+        <g>
+          <circle cx="240" cy="500" r="9" fill="#ff6b6b"/>
+          <text x="258" y="496" font-size="13.5" font-weight="800" fill="#ff6b6b">Kodiak</text>
+          <text x="258" y="514" font-size="11" fill="#93a1b5">PR auto-merge bot (kodiakhq.com) · not a coding agent</text>
+        </g>
+
+        <!-- legend -->
+        <g>
+          <rect x="660" y="540" width="420" height="86" rx="12" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="676" y="564" fill="#2dd4bf" font-size="12.5" font-weight="700">How to read: top-right = native + single-writer consensus (the right answer this wave)</text>
+          <text x="676" y="586" fill="#93a1b5" font-size="11">dsh / Mission Control / KiroCrew all land top-right and independently reinvented the same consensus pattern;</text>
+          <text x="676" y="608" fill="#93a1b5" font-size="11">amux / Ashlr are "bolt-on", not reinventing the writer; Kodiak isn't even a coding agent.</text>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>Landscape verdict:</b> in 2026 the control-plane idea of "one screen for a fleet of agents" is converging. The interesting part — dsh's Engine single-writer + Assignment atomic claim and Mission Control's SQLite WAL single-writer + atomic UPDATE claim are the same pattern, independently reinvented. "First writer wins, no double-writes" has become baseline consensus for control planes, not anyone's secret sauce.</div>
+  </section>
+
+  <!-- ============ D6 ============ -->
+  <section class="card" id="d6">
+    <div class="sec-head"><div class="sec-num">⑥</div><h2>Operating-system analogy: translate "multi-agent scheduling" into kernel terms you know</h2></div>
+    <h3>The community's favorite framing — once mapped to OS concepts, many design decisions click instantly.</h3>
+    <svg class="diagram" viewBox="0 0 1100 420" role="img" aria-label="Operating-system analogy diagram">
+      <defs>
+        <marker id="ar6" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- left: OS concept -->
+        <text x="40" y="40" fill="#5b9dff" font-size="14" font-weight="800">OS concepts</text>
+        <rect x="40" y="60" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="84" font-size="13" font-weight="700">Interrupt controller / thread pool</text>
+        <text x="60" y="104" fill="#93a1b5" font-size="11.5">collect interrupts, dispatch threads</text>
+
+        <rect x="40" y="140" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="164" font-size="13" font-weight="700">CPU cache (L1/L2)</text>
+        <text x="60" y="184" fill="#93a1b5" font-size="11.5">keep on hit, spill back to main memory</text>
+
+        <rect x="40" y="220" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="244" font-size="13" font-weight="700">Branch prediction</text>
+        <text x="60" y="264" fill="#93a1b5" font-size="11.5">speculate then verify, roll back on error</text>
+
+        <rect x="40" y="300" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="324" font-size="13" font-weight="700">External control loop (watchdog)</text>
+        <text x="60" y="344" fill="#93a1b5" font-size="11.5">periodic check-in, intervene when needed</text>
+
+        <rect x="40" y="380" width="300" height="0" rx="0" fill="none"/>
+
+        <!-- arrows to right -->
+        <line x1="340" y1="88" x2="560" y2="120" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+        <line x1="340" y1="168" x2="560" y2="200" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+        <line x1="340" y1="248" x2="560" y2="280" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+        <line x1="340" y1="328" x2="560" y2="360" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+
+        <!-- right: dsh concept -->
+        <text x="580" y="40" fill="#2dd4bf" font-size="14" font-weight="800">dsh-superagent counterpart</text>
+        <rect x="580" y="60" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="84" font-size="13" font-weight="700">Router (resident front door)</text>
+        <text x="600" y="104" fill="#93a1b5" font-size="11.5">collect signals, dispatch Workers</text>
+
+        <rect x="580" y="140" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="164" font-size="13" font-weight="700">Inline &amp; Spill (context keep / spill)</text>
+        <text x="600" y="184" fill="#93a1b5" font-size="11.5">hot context stays in Worker, spills back to main session</text>
+
+        <rect x="580" y="220" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="244" font-size="13" font-weight="700">Speculative execution</text>
+        <text x="600" y="264" fill="#93a1b5" font-size="11.5">try then verify, roll back if wrong (off by default)</text>
+
+        <rect x="580" y="300" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="324" font-size="13" font-weight="700">Watchdog</text>
+        <text x="600" y="344" fill="#93a1b5" font-size="11.5">polls hourly, intervenes when needed (prototype checks only)</text>
+
+        <!-- footer note -->
+        <rect x="40" y="384" width="1020" height="0" rx="0" fill="none"/>
+      </g>
+    </svg>
+    <div class="takeaway"><b>One-line memory hook:</b> think of dsh as "a kernel written for a team of Agents" — Router is the interrupt controller, Inline&amp;Spill is the cache policy, speculative is branch prediction, Watchdog is the external control loop. This analogy turns "why is it designed this way" from mysticism into common sense.</div>
+  </section>
+
+  <footer>
+    Companion reports: <a href="dsh-superagent-intro-zh.html">dsh-superagent 详解（中文）</a> · <a href="dsh-superagent-intro-en.html">dsh-superagent Explained（EN）</a>　|　Diagrams are information-density-first; view full-screen.
+  </footer>
+</div>
+</body>
+</html>
