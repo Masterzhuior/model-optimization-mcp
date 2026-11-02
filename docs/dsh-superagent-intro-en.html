@@ -126,7 +126,7 @@
 <header class="hero">
   <div class="kicker">● DeepSeek research prototype · not an official product</div>
   <h1>dsh-superagent</h1>
-  <div class="subtitle">A <b>proactive coding agent for a single GitHub repository</b>, shipped as a bundle for DeepSeek Harness. It listens to GitHub (and optionally Feishu); when an allowed person asks, it opens a work item, does the work in its own session and directory, and answers in the original conversation — e.g. with a pull request. Its whole creed fits one line: <span class="hl">take as little human attention as possible, give as much value as possible.</span></div>
+  <div class="subtitle">A <b>proactive coding agent for a single GitHub repository</b>, shipped as a bundle for DeepSeek Harness — more precisely, a <b>control plane that lets one screen drive many sessions</b>. It listens to GitHub (and optionally Feishu); when an allowed person asks, it opens a work item, does the work in its own session and directory, and answers in the original conversation — e.g. with a pull request. Its whole creed fits one line: <span class="hl">take as little human attention as possible, give as much value as possible.</span></div>
   <div class="meta">
     <div class="chip"><span class="dot"></span><b>Language</b> <span>TypeScript</span></div>
     <div class="chip"><span class="dot"></span><b>Runtime</b> <span>Node 22.19+ / 24+</span></div>
@@ -137,13 +137,14 @@
   </div>
 
   <div class="banner">
-    <div class="bt">⚠ Read this boundary first: implemented vs the paper's "future directions"</div>
-    <p>The design described in this repo's docs — domain model, authorization, execution, architecture, web panel — is <b>what the prototype actually implements</b>, and is fair to read and evaluate. But the README states plainly: this version was adapted for publication, so it is <b>not identical</b> to the internal version, nor to the implementation in the paper <i>Exploring Super-agent Design</i>; some designs discussed in the paper are future directions and are <b>not implemented in this prototype</b>. So: what follows explains "what this prototype does," not "what DeepSeek's internal production version or the full paper blueprint does." Which parts are unimplemented is subject to the repo's latest state.</p>
+    <div class="bt">⚠ Read this boundary first: a real, runnable DSH plugin — but not the paper's full blueprint</div>
+    <p>This prototype is a <b>real, installable and runnable Bundle plugin</b> on DeepSeek Harness (DSH): install with <span class="kbd">pnpm build</span> then <span class="kbd">dsh plugin --profile superagent add "link:$PWD"</span>, panel on port 3082 by default; the ecosystem also ships a separate packaged plugin <b>dsh-super-agent</b> (Plugin Hub v0.0.6, Apache-2.0). What it <b>actually implements</b> is the spine of this article — the <b>control-plane skeleton</b>: web panel, Router front-door, context-isolated Workers, single-writer Engine, atomic assignment and attention-minimizing rules; the community has already run it end-to-end (@ it to fix a bug → it opens a PR). The README also states it was adapted for publication, so it is <b>not identical</b> to the internal production version nor to the full paper <i>Exploring Super-agent Design</i>; the paper's <b>more elaborate autonomous triggers / self-healing / cross-system</b> ideas are future directions not yet in the prototype. So: what follows is "what this prototype really does," except where marked "paper direction."</p>
   </div>
 </header>
 
 <nav class="toc"><div class="inner">
   <a href="#s1">① In one line</a>
+  <a href="#s1b">★ Control plane &amp; peers</a>
   <a href="#s2">② Philosophy</a>
   <a href="#s3">③ Domain model</a>
   <a href="#s4">④ Authorization</a>
@@ -159,8 +160,57 @@
 
 <!-- 1 -->
 <section id="s1">
-  <div class="sec-head"><div class="sec-num">1</div><h2>What is it, in one line?</h2></div>
-  <p>Think of it as <b>"an outsourced teammate who lives in your repo and shows up when called."</b> Someone on the allow-list comments <span class="kbd">@agent fix this bug</span> on an issue; the agent checks out code in its own directory, changes it, verifies it, then pushes a PR right back into that same issue. It mostly leaves you alone in between — until it needs your decision, or the work is done.</p>
+  <div class="sec-head"><div class="sec-num">1</div><h2>In one line: one screen, many sessions</h2></div>
+  <p>The valuable part isn't "it can auto-open a PR" — Sweep did that back in 2023. The real new idea is a <b>control-plane approach</b>: a person can only track 3–5 active sessions at once; running N tabs each with its own agent means context-switching exhaustion and cross-talk, while cramming everything into one session means a long task blocks new messages. dsh-superagent puts a <b>resident Router front-door + web panel</b> as the single surface, behind which sit a swarm of <b>context-isolated Worker sessions</b>; the system owns "how sessions split and how context syncs," so the human always sees one Agent and is pulled in only to decide or use a result.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 680 400" role="img" aria-label="Control plane: one screen drives many sessions">
+      <defs>
+        <marker id="cp" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6f8099"/></marker>
+        <style>
+          .ct{fill:#e7edf5;font-size:13.5px;font-weight:700}
+          .cd{fill:#8b97a8;font-size:10.5px}
+          .gl{fill:#7f8ea6;font-size:10.5px}
+          .box{fill:#141b29;stroke:#2e3b52;stroke-width:1.4}
+          .boxp{fill:#16263a;stroke:#a78bfa;stroke-width:1.6}
+          .boxt{fill:#141b29;stroke:#2dd4bf;stroke-width:1.4}
+        </style>
+      </defs>
+      <rect class="box" x="40" y="100" width="130" height="60" rx="10"/>
+      <text class="ct" x="105" y="124" text-anchor="middle">You (human)</text>
+      <text class="cd" x="105" y="144" text-anchor="middle">Web panel · sole surface</text>
+      <rect class="boxp" x="255" y="108" width="170" height="64" rx="10"/>
+      <text class="ct" x="340" y="130" text-anchor="middle">Router front-door</text>
+      <text class="cd" x="340" y="150" text-anchor="middle">routes only · no exec · light model</text>
+      <rect class="boxt" x="520" y="48" width="140" height="56" rx="10"/>
+      <text class="ct" x="590" y="70" text-anchor="middle">Worker session A</text>
+      <text class="cd" x="590" y="90" text-anchor="middle">reproduce bug</text>
+      <rect class="boxt" x="520" y="124" width="140" height="56" rx="10"/>
+      <text class="ct" x="590" y="146" text-anchor="middle">Worker session B</text>
+      <text class="cd" x="590" y="166" text-anchor="middle">code review</text>
+      <rect class="boxt" x="520" y="200" width="140" height="56" rx="10"/>
+      <text class="ct" x="590" y="222" text-anchor="middle">Worker session C</text>
+      <text class="cd" x="590" y="242" text-anchor="middle">feature work</text>
+      <text class="gl" x="520" y="280">isolated · no cross-talk · report only to Router</text>
+      <line x1="170" y1="138" x2="252" y2="132" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <text class="gl" x="184" y="126">request / event</text>
+      <line x1="425" y1="128" x2="516" y2="74" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <line x1="425" y1="142" x2="516" y2="150" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <line x1="425" y1="156" x2="516" y2="224" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <line x1="516" y1="84" x2="427" y2="134" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <line x1="516" y1="160" x2="427" y2="146" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <line x1="516" y1="226" x2="427" y2="158" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <line x1="255" y1="160" x2="172" y2="150" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <text class="gl" x="184" y="178">single unified reply</text>
+      <rect class="box" x="40" y="300" width="620" height="78" rx="12"/>
+      <text class="ct" x="60" y="324" style="font-size:12.5px">Why not the two naïve options</text>
+      <text class="cd" x="60" y="346">① N tabs, each its own session → you drown in switching and cross-talk; ② one session for everything → a long task blocks new messages</text>
+      <text class="cd" x="60" y="366">Router/Worker take session-splitting and context-sync off your hands — you see one Agent</text>
+    </svg>
+    <figcaption>The real increment isn't "issue → PR"; it's this control plane: one surface driving many concurrent sessions.</figcaption>
+  </div>
+
+  <p style="margin-top:20px">Drop that abstract idea into a repo and you get the familiar "issue → PR" pipeline — but that is only the <b>execution layer</b> of the control plane. Someone on the allow-list comments <span class="kbd">@agent fix this bug</span> on an issue; the agent checks out code in its own directory, changes it, verifies it, then pushes a PR right back into that same issue. It mostly leaves you alone in between — until it needs your decision, or the work is done.</p>
 
   <div class="pipe">
     <div class="node tok"><div class="t">Source</div><div class="d">GitHub events / Feishu</div></div>
@@ -247,6 +297,31 @@
     <div class="card"><div class="ic">📡</div><h4>Listens, doesn't nag</h4><p>Runs as a DeepSeek Harness bundle, listening to GitHub (Feishu optional). Event-driven, not something you trigger by hand.</p></div>
     <div class="card"><div class="ic">🎫</div><h4>Every ticket is authorized</h4><p>No work starts without a Mandate. Authorization comes from "an allow-listed person asks" or "a rule the team wrote."</p></div>
     <div class="card"><div class="ic">🤫</div><h4>Speaks only at key moments</h4><p>Confirms once before big work; stays quiet while working; speaks again when a result is ready, a decision is needed, or it can't finish.</p></div>
+  </div>
+</section>
+
+<!-- 1b: control plane & peers -->
+<section id="s1b">
+  <div class="sec-head"><div class="sec-num">★</div><h2>Control plane &amp; the 2026 peer landscape: who else drives "one screen, many agents"?</h2></div>
+  <div class="tl"><b>30s:</b> dsh-superagent isn't alone. A wave of "agent fleet / mission-control" tools shipped in 2026, all solving the same problem — letting one surface drive many concurrent agent sessions. dsh-superagent is the "native, attention-first, GitHub-native" entry in that set.</div>
+  <p>Shift the lens from "opening PRs" to "control plane," and its true peers aren't the one-shot issue→PR bots (Sweep / Creeks / issue-agent) but this batch of "one screen, many agents" control planes:</p>
+  <table>
+    <thead><tr><th>Project</th><th>Shape</th><th>How it "drives many sessions"</th><th>Relation to dsh-superagent</th></tr></thead>
+    <tbody>
+      <tr><td><b>amux</b><br><span class="muted">MIT+Commons</span></td><td>Bolt-on control plane</td><td>One dashboard + iOS app + kanban over Claude Code / Codex / Gemini; status dots; atomic SQLite claim to avoid double-pick; cross-vendor rate-limit sharing</td><td>Same "fleet visibility" problem, but an observer bolted onto existing agents</td></tr>
+      <tr><td><b>Ashlr AO</b></td><td>Local-first command center</td><td>Real-time web dashboard; each agent in an isolated tmux session, card-ified; auto-pilot restarts stalled agents</td><td>A lightweight local take on the same idea</td></tr>
+      <tr><td><b>Mission Control</b><br><span class="muted">~5.2k★</span></td><td>Self-hosted orchestration</td><td>Zero external deps (SQLite WAL single-writer); atomic UPDATE claim to prevent double-dispatch; multi-gateway for LangGraph / CrewAI / AutoGen / Claude</td><td>Same "single-writer + atomic claim" pattern as dsh — invented independently</td></tr>
+      <tr><td><b>KiroCrew</b></td><td>Resident teammate</td><td>Dashboard + scheduler; crews coordinate via one comment per issue; public claim ledger and a needs-human label</td><td>Closest to dsh's "resident repo, claim → implement → PR" shape</td></tr>
+      <tr><td><b>dsh-superagent</b><br><span class="muted">this prototype</span></td><td>Native control plane</td><td>Router/Worker grow from inside the design; first-class domain model + GitHub-native delivery; attention economy written into the philosophy doc</td><td>Not "watching" tmux — built for this architecture from day one</td></tr>
+    </tbody>
+  </table>
+  <div class="callout plain">
+    <div class="lab">The point worth noting</div>
+    <b>Independent convergence.</b> dsh-superagent's "single-writer Engine + atomic Assignment" and Mission Control's "SQLite WAL single-writer + atomic UPDATE claim" are <b>the same pattern, invented twice, independently</b>. That tells you "single-writer + atomic claim" has become a consensus solution for control planes — it keeps many concurrent agents from stepping on each other and stays auditable.
+  </div>
+  <div class="callout plain" style="margin-top:12px">
+    <div class="lab">How it differs from "fleet dashboards"</div>
+    Those (amux / Mission Control) are <b>bolt-on</b>: they sit outside existing agents (Claude Code / Codex), watching tmux, parsing output, sending "continue" — essentially observers. dsh-superagent is <b>native</b>: the Router/Worker split grows from inside the design, with a first-class domain model (Ticket / Thread / Mandate) and GitHub-native delivery (it replies right in the issue / PR). On top of that it systematizes "attention economy" — a step most bolt-on dashboards skip.
   </div>
 </section>
 
@@ -651,7 +726,7 @@ grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.pa
   <div class="callout warn">
     <div class="lab">Read this first</div>
     ① This is a <b>research prototype for reference only, not an official DeepSeek product</b>. Much of the engineering was done by coding agents; it may contain bugs and inconsistent style/practices — review and adapt before use.<br>
-    ② It was adapted for publication, so it is <b>not identical</b> to the internal version nor to the implementation in the paper <i>Exploring Super-agent Design</i>; some designs discussed there are future directions and are <b>not implemented</b> in this prototype.<br>
+    ② It was adapted for publication, so it is <b>not identical</b> to the internal production version nor to the full paper <i>Exploring Super-agent Design</i>; the paper's more elaborate autonomous triggers / self-healing / cross-system ideas are future directions not yet in the prototype (but the <b>control-plane skeleton</b> — panel, Router, Workers, single writer, atomic claim, attention rules — is genuinely implemented and runnable).<br>
     ③ Licensed <b>MIT</b> — free to use and modify.
   </div>
 

@@ -126,7 +126,7 @@
 <header class="hero">
   <div class="kicker">● DeepSeek 研究原型 · 不是官方产品</div>
   <h1>dsh-superagent</h1>
-  <div class="subtitle">一个住在你 <b>单个 GitHub 仓库</b> 里的主动式编程智能体。它监听 GitHub（可选飞书），被允许的人一开口，就开一张"工单"自己干活，最后把结果（比如一个 PR）回在原对话里。核心信条只有一句：<span class="hl">占最少的人脑注意力，给最大的价值</span>。</div>
+  <div class="subtitle">一个住在你 <b>单个 GitHub 仓库</b> 里的主动式编程智能体——更准确地说，是一套<b>"一个画面统管多个 session"</b>的控制面。它监听 GitHub（可选飞书），被允许的人一开口，就开一张"工单"自己干活，最后把结果（比如一个 PR）回在原对话里。核心信条只有一句：<span class="hl">占最少的人脑注意力，给最大的价值</span>。</div>
   <div class="meta">
     <div class="chip"><span class="dot"></span><b>语言</b> <span>TypeScript</span></div>
     <div class="chip"><span class="dot"></span><b>运行</b> <span>Node 22.19+ / 24+</span></div>
@@ -137,13 +137,14 @@
   </div>
 
   <div class="banner">
-    <div class="bt">⚠ 先读这条边界：已实现 vs 论文里的"未来方向"</div>
-    <p>本仓库文档描述的这套设计——领域模型、授权、执行、架构、Web 面板——就是<b>本原型已经实现</b>的内容，可用来理解和评估。但仓库在 README 明确声明：它是为发布改编过的版本，<b>不等于</b>其内部版本，也<b>不等于</b>论文《Exploring Super-agent Design》里描述的实现；论文中提及的<b>部分设计属于未来方向、本原型尚未实现</b>。所以：下面讲的是"这个原型做了什么"，不是"DeepSeek 内部生产版或论文全部蓝图做了什么"。具体哪些未实现，以仓库最新内容为准。</p>
+    <div class="bt">⚠ 先读这条边界：真实可跑的 DSH 插件，但 ≠ 论文完整蓝图</div>
+    <p>本原型就是 DeepSeek Harness（DSH）上一个<b>真实可安装、可运行的 Bundle 插件</b>：装法是 <span class="kbd">pnpm build</span> 后 <span class="kbd">dsh plugin --profile superagent add "link:$PWD"</span>，面板默认端口 3082；生态里另有打包好的独立插件 <b>dsh-super-agent</b>（Plugin Hub v0.0.6，Apache-2.0）。它<b>已落地</b>的，正是本文主线——<b>控制面骨架</b>：Web 面板、Router 总前台、上下文隔离的 Worker、单一写入者 Engine、原子化派工(Assignment)与注意力最小化规则；社区已有实测端到端跑通（@它修 bug → 它自己提 PR）。但 README 也写明：它是为发布改编过的版本，<b>不等于</b>其内部生产版，也<b>不等于</b>论文《Exploring Super-agent Design》的全貌；论文中<b>更复杂的自主触发 / 自愈 / 跨多系统</b>属于未来方向，原型尚未实现。所以：下面讲的是"这个原型真实做了什么"，少数标注"论文方向"的除外。</p>
   </div>
 </header>
 
 <nav class="toc"><div class="inner">
   <a href="#s1">① 一句话理解</a>
+  <a href="#s1b">★ 控制面 &amp; 同类格局</a>
   <a href="#s2">② 核心哲学</a>
   <a href="#s3">③ 领域模型</a>
   <a href="#s4">④ 授权模型</a>
@@ -159,8 +160,57 @@
 
 <!-- 1 -->
 <section id="s1">
-  <div class="sec-head"><div class="sec-num">1</div><h2>一句话理解：它是个什么？</h2></div>
-  <p>把它想象成 <b>"一个住在你仓库里、随叫随到的外包同事"</b>。你（或团队里被授权的人）在 Issue 评论里 <span class="kbd">@agent 帮我修下这个 bug</span>，它就去自己的目录里拉代码、改、验证，然后把一个 PR 推回同一个 Issue。中间基本不烦你——直到它需要你拍板，或活干完了。</p>
+  <div class="sec-head"><div class="sec-num">1</div><h2>一句话理解：一个画面，统管多个 session</h2></div>
+  <p>它最值钱的不是"能自动出 PR"——那套 2023 年 Sweep 就有了。真正的新东西是一个<b>控制面（control plane）思路</b>：一个人同一时间只能跟 3–5 个活跃会话，开 N 个 tab 各自跑会切到崩溃、全挤一个 session 长任务又卡住新消息。dsh-superagent 用<b>常驻的 Router 总前台 + Web 面板</b>当唯一界面，后面挂一堆<b>上下文隔离的 Worker 会话</b>；系统接管"会话怎么拆、上下文怎么同步"，人始终只看到一个 Agent，只在需要拍板或用结果时才被叫到。</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 680 400" role="img" aria-label="控制面：一个画面统管多个 session">
+      <defs>
+        <marker id="cp" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6f8099"/></marker>
+        <style>
+          .ct{fill:#e7edf5;font-size:13.5px;font-weight:700}
+          .cd{fill:#8b97a8;font-size:10.5px}
+          .gl{fill:#7f8ea6;font-size:10.5px}
+          .box{fill:#141b29;stroke:#2e3b52;stroke-width:1.4}
+          .boxp{fill:#16263a;stroke:#a78bfa;stroke-width:1.6}
+          .boxt{fill:#141b29;stroke:#2dd4bf;stroke-width:1.4}
+        </style>
+      </defs>
+      <rect class="box" x="40" y="100" width="130" height="60" rx="10"/>
+      <text class="ct" x="105" y="124" text-anchor="middle">你（人）</text>
+      <text class="cd" x="105" y="144" text-anchor="middle">Web 面板 · 唯一界面</text>
+      <rect class="boxp" x="255" y="108" width="170" height="64" rx="10"/>
+      <text class="ct" x="340" y="130" text-anchor="middle">Router 总前台</text>
+      <text class="cd" x="340" y="150" text-anchor="middle">只分派·不执行·轻量模型</text>
+      <rect class="boxt" x="520" y="48" width="140" height="56" rx="10"/>
+      <text class="ct" x="590" y="70" text-anchor="middle">Worker 会话 A</text>
+      <text class="cd" x="590" y="90" text-anchor="middle">复现问题</text>
+      <rect class="boxt" x="520" y="124" width="140" height="56" rx="10"/>
+      <text class="ct" x="590" y="146" text-anchor="middle">Worker 会话 B</text>
+      <text class="cd" x="590" y="166" text-anchor="middle">代码审查</text>
+      <rect class="boxt" x="520" y="200" width="140" height="56" rx="10"/>
+      <text class="ct" x="590" y="222" text-anchor="middle">Worker 会话 C</text>
+      <text class="cd" x="590" y="242" text-anchor="middle">功能开发</text>
+      <text class="gl" x="520" y="280">彼此隔离·互不通信·只向 Router 汇报</text>
+      <line x1="170" y1="138" x2="252" y2="132" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <text class="gl" x="190" y="126">请求/事件</text>
+      <line x1="425" y1="128" x2="516" y2="74" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <line x1="425" y1="142" x2="516" y2="150" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <line x1="425" y1="156" x2="516" y2="224" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
+      <line x1="516" y1="84" x2="427" y2="134" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <line x1="516" y1="160" x2="427" y2="146" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <line x1="516" y1="226" x2="427" y2="158" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <line x1="255" y1="160" x2="172" y2="150" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
+      <text class="gl" x="188" y="178">统一回复一次</text>
+      <rect class="box" x="40" y="300" width="620" height="78" rx="12"/>
+      <text class="ct" x="60" y="324" style="font-size:12.5px">为什么不用两种 naïve 方案</text>
+      <text class="cd" x="60" y="346">① N 个 tab 各自 session → 人切到崩溃、上下文串线；② 全挤 1 个 session → 长任务卡住新消息</text>
+      <text class="cd" x="60" y="366">Router/Worker 把会话拆分与上下文同步从人手上接走——人只看到一个 Agent</text>
+    </svg>
+    <figcaption>真正的增量不是"issue 变 PR"，而是这套控制面：一个界面统管多个并发 session。</figcaption>
+  </div>
+
+  <p style="margin-top:20px">把这个抽象思路落到一个仓库里，就是大家常说的"issue→PR"流水线——但那只是控制面的<b>执行层</b>。你（或团队里被授权的人）在 Issue 评论里 <span class="kbd">@agent 帮我修下这个 bug</span>，它就去自己的目录里拉代码、改、验证，然后把一个 PR 推回同一个 Issue。中间基本不烦你——直到它需要你拍板，或活干完了。</p>
 
   <div class="pipe">
     <div class="node tok"><div class="t">来源 Source</div><div class="d">GitHub 通知 / 飞书消息</div></div>
@@ -247,6 +297,31 @@
     <div class="card"><div class="ic">📡</div><h4>监听，不轮询你</h4><p>作为 DeepSeek Harness 的一个 bundle 运行，监听 GitHub（飞书可选）。事件驱动，不是你手动触发。</p></div>
     <div class="card"><div class="ic">🎫</div><h4>每张工单都授权</h4><p>没有"授权书"(Mandate) 的活它不开工。授权来自"白名单里的人开口"或"团队写好的规则"。</p></div>
     <div class="card"><div class="ic">🤫</div><h4>只在关键点出声</h4><p>开工前确认一次；干活时闭嘴；出结果、要你拍板、或干不完时才说话。一条消息默认一句话。</p></div>
+  </div>
+</section>
+
+<!-- 1b: 控制面 & 同类格局 -->
+<section id="s1b">
+  <div class="sec-head"><div class="sec-num">★</div><h2>控制面 &amp; 2026 年同类格局：谁在"一个屏幕管一堆 agent"？</h2></div>
+  <div class="tl"><b>30 秒：</b>dsh-superagent 不是孤例。2026 年出现了一批"agent 舰队 / 指挥中心"项目，都在解决同一件事——让人用一个界面统管很多并发 agent session。dsh-superagent 是其中"原生、注意力优先、GitHub 原生"的那一档。</div>
+  <p>把镜头从"出 PR"切到"控制面"后，真正和它同类的不是那些一次性 issue→PR 机器人（Sweep / Creeks / issue-agent），而是下面这批"一个屏幕管一堆 agent"的控制面：</p>
+  <table>
+    <thead><tr><th>项目</th><th>形态</th><th>怎么"统管多 session"</th><th>与 dsh-superagent 的关系</th></tr></thead>
+    <tbody>
+      <tr><td><b>amux</b><br><span class="muted">MIT+Commons</span></td><td>外挂式控制面</td><td>给 Claude Code / Codex / Gemini 的统一看板 + iOS App + 看板；状态灯；原子化 SQLite 抢单防重复；跨供应商分摊限速</td><td>同解决"舰队可见性"，但是架在已有 agent 外面的观察者</td></tr>
+      <tr><td><b>Ashlr AO</b></td><td>本地优先指挥中心</td><td>实时 Web 看板，每个 agent 跑在隔离 tmux session，卡片化状态；auto-pilot 卡住自动重启</td><td>同一思路的轻量本地版</td></tr>
+      <tr><td><b>Mission Control</b><br><span class="muted">~5.2k★</span></td><td>自托管编排看板</td><td>零外部依赖（SQLite WAL 单写者）；原子 UPDATE 抢单防双派；多网关适配 LangGraph / CrewAI / AutoGen / Claude</td><td>与 dsh 的"单写者 + 原子认领"是同一 pattern，两边独立重发明</td></tr>
+      <tr><td><b>KiroCrew</b></td><td>常驻式队友</td><td>dashboard + scheduler；crew 之间靠 issue 单条评论协调；有公开认领账本与 needs-human 标签</td><td>最接近 dsh 的"常驻仓库、认领→实现→PR"形态</td></tr>
+      <tr><td><b>dsh-superagent</b><br><span class="muted">本原型</span></td><td>原生式控制面</td><td>Router/Worker 是设计内部就长出来的；一等公民领域模型 + GitHub 原生交付；注意力经济写进哲学文档</td><td>不是"看"tmux，而是为这个架构从零长的</td></tr>
+    </tbody>
+  </table>
+  <div class="callout plain">
+    <div class="lab">最该注意的一点</div>
+    <b>独立收敛。</b> dsh-superagent 的"Engine 单写者 + Assignment 原子认领"，和 Mission Control 的"SQLite WAL 单写者 + 原子 UPDATE 抢单"是<b>同一个 pattern，两边互不相关地各发明了一次</b>。这说明"<b>单写者 + 原子认领</b>"已经是控制面领域的共识性解法——目的就是让多个并发 agent 不互相踩、可审计。
+  </div>
+  <div class="callout plain" style="margin-top:12px">
+    <div class="lab">它和"舰队看板"的区别</div>
+    那些（amux / Mission Control）是<b>外挂式</b>：架在已有 agent（Claude Code / Codex）外面，靠盯 tmux、解析输出、发 "continue" 来管，本质是观察者。dsh-superagent 是<b>原生式</b>：Router/Worker 拆分从设计内部就长出来，还带一等公民的领域模型（Ticket / Thread / Mandate）和 GitHub 原生交付（直接在 issue / PR 里回你）。加上它把"注意力经济"系统化了——外挂看板很少做这一步。
   </div>
 </section>
 
@@ -651,7 +726,7 @@ grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.pa
   <div class="callout warn">
     <div class="lab">读前必看</div>
     ① 这是<b>研究原型，仅供参考，不是 DeepSeek 官方产品</b>。大量工程由编程 Agent 完成，可能含 bug，编码风格与工程实践可能不一致——用前请审阅、改造。<br>
-    ② 已为发布做改编，<b>不等于</b>其内部版本，也<b>不等于</b>论文《Exploring Super-agent Design》里描述的实现；文中一些设计是未来方向，本原型<b>尚未实现</b>。<br>
+    ② 已为发布做改编，<b>不等于</b>其内部生产版，也<b>不等于</b>论文《Exploring Super-agent Design》的全貌；论文中<b>更复杂的自主触发 / 自愈 / 跨多系统</b>属于未来方向，原型尚未实现（但<b>控制面骨架</b>——面板、Router、Worker、单写者、原子认领、注意力规则——均已真实落地、可跑）。<br>
     ③ 协议 <b>MIT</b>，可自由使用与修改。
   </div>
 
