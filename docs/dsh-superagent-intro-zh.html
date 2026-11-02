@@ -132,7 +132,7 @@
     <div class="chip"><span class="dot"></span><b>运行</b> <span>Node 22.19+ / 24+</span></div>
     <div class="chip"><span class="dot"></span><b>宿主</b> <span>DeepSeek Harness 插件</span></div>
     <div class="chip"><span class="dot"></span><b>协议</b> <span>MIT</span></div>
-    <div class="chip"><span class="dot"></span><b>首版提交</b> <span>2026-10-31</span></div>
+    <div class="chip"><span class="dot"></span><b>首版提交</b> <span>约 2026-10-31</span></div>
     <div class="chip"><span class="dot"></span><b>仓库</b> <span>deepseek-ai/dsh-superagent-prototype</span></div>
   </div>
 
@@ -336,8 +336,8 @@
     <tbody>
       <tr><td><b>amux</b><br><span class="muted">MIT+Commons</span></td><td>外挂式控制面</td><td>给 Claude Code / Codex / Gemini 的统一看板 + iOS App + 看板；状态灯；原子化 SQLite 抢单防重复；跨供应商分摊限速</td><td>同解决"舰队可见性"，但是架在已有 agent 外面的观察者</td></tr>
       <tr><td><b>Ashlr AO</b></td><td>本地优先指挥中心</td><td>实时 Web 看板，每个 agent 跑在隔离 tmux session，卡片化状态；auto-pilot 卡住自动重启</td><td>同一思路的轻量本地版</td></tr>
-      <tr><td><b>Mission Control</b><br><span class="muted">~5.2k★</span></td><td>自托管编排看板</td><td>零外部依赖（SQLite WAL 单写者）；原子 UPDATE 抢单防双派；多网关适配 LangGraph / CrewAI / AutoGen / Claude</td><td>与 dsh 的"单写者 + 原子认领"是同一 pattern，两边独立重发明</td></tr>
-      <tr><td><b>KiroCrew</b></td><td>常驻式队友</td><td>dashboard + scheduler；crew 之间靠 issue 单条评论协调；有公开认领账本与 needs-human 标签</td><td>最接近 dsh 的"常驻仓库、认领→实现→PR"形态</td></tr>
+      <tr><td><b>Mission Control</b><br><span class="muted">~5–6k★（2026 年中）</span></td><td>自托管编排看板</td><td>零外部依赖（SQLite WAL 单写者）；原子 UPDATE 抢单防双派；多网关适配 LangGraph / CrewAI / AutoGen / Claude</td><td>与 dsh 的"单写者 + 原子认领"是同一 pattern，两边独立重发明</td></tr>
+      <tr><td><b>KiroCrew</b><br><span class="muted">Apache-2.0 · 3.4k–4.5k★</span></td><td>AWS 开源的常驻式多 agent 工作区</td><td>基于 Kiro CLI + ACP 协议编排多个 agent；跨会话记忆、webhook/CI 心跳自驱、OS 级沙箱 + 签名审计日志；Slack/Telegram/Discord/企微接入（<a href="https://github.com/kirodotdev/KiroCrew">GitHub</a>）</td><td>同样"常驻仓库、认领→实现→PR"，但走自家 ACP 运行时而非 DSH bundle</td></tr>
       <tr><td><b>dsh-superagent</b><br><span class="muted">本原型</span></td><td>原生式控制面</td><td>Router/Worker 是设计内部就长出来的；一等公民领域模型 + GitHub 原生交付；注意力经济写进哲学文档</td><td>不是"看"tmux，而是为这个架构从零长的</td></tr>
     </tbody>
   </table>
@@ -362,10 +362,10 @@
     <thead><tr><th>维度</th><th>原型仓库 dsh-superagent-prototype</th><th>打包插件 dsh-super-agent</th></tr></thead>
     <tbody>
       <tr><td><b>定位</b></td><td>研究原型 / 源码可读可改（MIT）</td><td>开箱即用 Bundle 插件（Apache-2.0）</td></tr>
-      <tr><td><b>场景预置矩阵</b></td><td>仅 Worker preset（执行所需工具）</td><td>execution mode × work scenario 预设矩阵：solo / team × delivery / research / optimization</td></tr>
+      <tr><td><b>场景预置矩阵</b></td><td>仅 Worker preset（执行所需工具）</td><td>场景预置矩阵：solo / team / research / optimization（4 个执行预设）</td></tr>
       <tr><td><b>任务协议</b></td><td>领域模型 Ticket / Thread，SQLite 持久化</td><td>额外加了<b>事件溯源</b>的任务账本——任务树、owner、attempts、commits、review、rework、acceptance、delivery、cancel 全记成 JSONL，可重放 / 可审计</td></tr>
       <tr><td><b>Web UI 集成</b></td><td>面板用领域术语，基础 Overview / Execution</td><td>更深集成：预置选择器、session 投影、组合不可变（immutability）</td></tr>
-      <tr><td><b>上手方式</b></td><td>pnpm build + dsh plugin --profile superagent add "link:$PWD"</td><td>Plugin Hub 一键安装，面板默认端口 3082</td></tr>
+      <tr><td><b>上手方式</b></td><td>pnpm build + dsh plugin --profile superagent add "link:$PWD"</td><td>Plugin Hub 一键安装（原型 superagent profile 默认端口 3082，插件实际端口以安装为准）</td></tr>
     </tbody>
   </table>
   <div class="callout plain">
@@ -826,7 +826,7 @@ grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.pa
     <span class="pill">deepseek-ai/dsh-superagent-prototype</span>
     <span class="pill">MIT License</span>
     <span class="pill">TypeScript · Node 22+ · DeepSeek Harness</span>
-    <span class="pill">首版 2026-10-31</span>
+    <span class="pill">首版 约 2026-10-31</span>
   </div>
   本页为基于公开 README 与 <span class="kbd">docs/000–008</span> 系列文档整理的解读，非官方文档。细节以仓库最新内容为准。代码片段来自仓库原文件，已精简标注。
   <div style="margin-top:10px"><a href="https://github.com/deepseek-ai/dsh-superagent-prototype">→ 查看原仓库</a> · <a href="https://www.deepseek.com/en/harness/">→ DeepSeek Harness</a></div>

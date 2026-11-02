@@ -132,7 +132,7 @@
     <div class="chip"><span class="dot"></span><b>Runtime</b> <span>Node 22.19+ / 24+</span></div>
     <div class="chip"><span class="dot"></span><b>Host</b> <span>DeepSeek Harness plugin</span></div>
     <div class="chip"><span class="dot"></span><b>License</b> <span>MIT</span></div>
-    <div class="chip"><span class="dot"></span><b>First commit</b> <span>2026-10-31</span></div>
+    <div class="chip"><span class="dot"></span><b>First commit</b> <span>~2026-10-31</span></div>
     <div class="chip"><span class="dot"></span><b>Repo</b> <span>deepseek-ai/dsh-superagent-prototype</span></div>
   </div>
 
@@ -336,8 +336,8 @@
     <tbody>
       <tr><td><b>amux</b><br><span class="muted">MIT+Commons</span></td><td>Bolt-on control plane</td><td>One dashboard + iOS app + kanban over Claude Code / Codex / Gemini; status dots; atomic SQLite claim to avoid double-pick; cross-vendor rate-limit sharing</td><td>Same "fleet visibility" problem, but an observer bolted onto existing agents</td></tr>
       <tr><td><b>Ashlr AO</b></td><td>Local-first command center</td><td>Real-time web dashboard; each agent in an isolated tmux session, card-ified; auto-pilot restarts stalled agents</td><td>A lightweight local take on the same idea</td></tr>
-      <tr><td><b>Mission Control</b><br><span class="muted">~5.2k★</span></td><td>Self-hosted orchestration</td><td>Zero external deps (SQLite WAL single-writer); atomic UPDATE claim to prevent double-dispatch; multi-gateway for LangGraph / CrewAI / AutoGen / Claude</td><td>Same "single-writer + atomic claim" pattern as dsh — invented independently</td></tr>
-      <tr><td><b>KiroCrew</b></td><td>Resident teammate</td><td>Dashboard + scheduler; crews coordinate via one comment per issue; public claim ledger and a needs-human label</td><td>Closest to dsh's "resident repo, claim → implement → PR" shape</td></tr>
+      <tr><td><b>Mission Control</b><br><span class="muted">~5–6k★ (mid-2026)</span></td><td>Self-hosted orchestration</td><td>Zero external deps (SQLite WAL single-writer); atomic UPDATE claim to prevent double-dispatch; multi-gateway for LangGraph / CrewAI / AutoGen / Claude</td><td>Same "single-writer + atomic claim" pattern as dsh — invented independently</td></tr>
+      <tr><td><b>KiroCrew</b><br><span class="muted">Apache-2.0 · 3.4k–4.5k★</span></td><td>AWS-open-sourced resident multi-agent workspace</td><td>Orchestrates agents over the Kiro CLI + ACP; cross-session memory, webhook/CI heartbeats, OS-level sandbox + signed audit log; Slack/Telegram/Discord/WeCom integrations (<a href="https://github.com/kirodotdev/KiroCrew">GitHub</a>)</td><td>Same "resident repo, claim → implement → PR" shape, but on its own ACP runtime rather than a DSH bundle</td></tr>
       <tr><td><b>dsh-superagent</b><br><span class="muted">this prototype</span></td><td>Native control plane</td><td>Router/Worker grow from inside the design; first-class domain model + GitHub-native delivery; attention economy written into the philosophy doc</td><td>Not "watching" tmux — built for this architecture from day one</td></tr>
     </tbody>
   </table>
@@ -362,10 +362,10 @@
     <thead><tr><th>Aspect</th><th>Prototype repo dsh-superagent-prototype</th><th>Packaged plugin dsh-super-agent</th></tr></thead>
     <tbody>
       <tr><td><b>Position</b></td><td>Research prototype / source readable & editable (MIT)</td><td>Install-and-run Bundle plugin (Apache-2.0)</td></tr>
-      <tr><td><b>Scenario presets</b></td><td>Only Worker preset (work tools)</td><td>execution mode × work scenario preset matrix: solo / team × delivery / research / optimization</td></tr>
+      <tr><td><b>Scenario presets</b></td><td>Only Worker preset (work tools)</td><td>scenario preset matrix: solo / team / research / optimization (4 presets)</td></tr>
       <tr><td><b>Task protocol</b></td><td>Domain model Ticket / Thread, SQLite persistence</td><td>Adds an <b>event-sourced</b> task ledger — task tree, owner, attempts, commits, review, rework, acceptance, delivery, cancel all logged to JSONL; replayable / auditable</td></tr>
       <tr><td><b>Web UI integration</b></td><td>Panel uses domain terms, basic Overview / Execution</td><td>Deeper integration: preset selector, session projection, combination immutability</td></tr>
-      <tr><td><b>Getting started</b></td><td>pnpm build + dsh plugin --profile superagent add "link:$PWD"</td><td>One-click from Plugin Hub, panel on port 3082 by default</td></tr>
+      <tr><td><b>Getting started</b></td><td>pnpm build + dsh plugin --profile superagent add "link:$PWD"</td><td>One-click from Plugin Hub (prototype's superagent profile defaults to 3082; plugin's actual port may vary)</td></tr>
     </tbody>
   </table>
   <div class="callout plain">
@@ -826,7 +826,7 @@ grep -l -E 'id: dsh-superagent\b' "${DSH_HOME:-$HOME/.dsh}"/profiles/*/cordis.pa
     <span class="pill">deepseek-ai/dsh-superagent-prototype</span>
     <span class="pill">MIT License</span>
     <span class="pill">TypeScript · Node 22+ · DeepSeek Harness</span>
-    <span class="pill">first commit 2026-10-31</span>
+    <span class="pill">first commit ~2026-10-31</span>
   </div>
   This page is an interpretation based on the public README and the <span class="kbd">docs/000–008</span> series — not official documentation. Details may change; defer to the repo. Code excerpts are from the repo's original files, trimmed and annotated.
   <div style="margin-top:10px"><a href="https://github.com/deepseek-ai/dsh-superagent-prototype">→ View the repository</a> · <a href="https://www.deepseek.com/en/harness/">→ DeepSeek Harness</a></div>
