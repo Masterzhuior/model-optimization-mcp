@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dsh-superagent 架构图解 · 一张图看懂控制面</title>
+<style>
+  :root{
+    --bg:#0a0e16; --surface:#141b29; --surface2:#1b2435;
+    --border:#243044; --border2:#2e3b52; --text:#e7edf5; --muted:#93a1b5;
+    --accent:#5b9dff; --accent2:#2dd4bf; --warn:#f5a623; --danger:#ff6b6b;
+    --green:#34d399; --purple:#a78bfa; --pink:#f472b6;
+    --shadow:0 8px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%,rgba(91,157,255,.12),transparent 60%),
+               radial-gradient(900px 500px at 0% 0%,rgba(45,212,191,.10),transparent 55%),var(--bg);
+    color:var(--text);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 22px 100px}
+  header.hero{padding:60px 22px 10px;max-width:1180px;margin:0 auto}
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;letter-spacing:.5px;color:var(--accent2);
+    border:1px solid var(--border2);background:rgba(45,212,191,.07);padding:6px 12px;border-radius:999px}
+  h1{font-size:clamp(28px,4.2vw,46px);line-height:1.1;margin:16px 0 8px;letter-spacing:-.5px;
+    background:linear-gradient(100deg,#fff 10%,#9fc3ff 60%,#7af0e0 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .subtitle{font-size:17px;color:var(--muted);max-width:820px;margin:6px 0 0}
+  .toc{display:flex;flex-wrap:wrap;gap:10px;margin:30px 0 10px}
+  .toc a{font-size:13px;color:var(--accent);border:1px solid var(--border2);background:var(--surface);
+    padding:7px 13px;border-radius:10px}
+  .factstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:34px 0 10px}
+  .fact{background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--border);
+    border-radius:14px;padding:16px 18px}
+  .fact b{display:block;font-size:22px;color:var(--accent2);margin-bottom:4px}
+  .fact span{font-size:13px;color:var(--muted)}
+  section.card{background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--border);
+    border-radius:18px;padding:26px 26px 30px;margin:34px 0;box-shadow:var(--shadow)}
+  .sec-head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .sec-num{font-size:13px;font-weight:700;color:#0a0e16;background:var(--warn);border-radius:8px;padding:5px 10px}
+  h2{font-size:22px;margin:0}
+  h3{font-size:15px;color:var(--muted);font-weight:500;margin:4px 0 18px}
+  .diagram{width:100%;height:auto;display:block;background:rgba(10,14,22,.55);border:1px solid var(--border);
+    border-radius:14px;padding:8px}
+  .takeaway{margin-top:18px;border-left:3px solid var(--accent2);background:rgba(45,212,191,.06);
+    padding:12px 16px;border-radius:0 10px 10px 0;font-size:14.5px;color:var(--text)}
+  .takeaway b{color:var(--accent2)}
+  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:40px}
+  a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="kicker">◆ 视觉图解 · 配套 dsh-superagent 详解报告</div>
+  <h1>dsh-superagent 架构图解</h1>
+  <p class="subtitle">一张图看懂"一个画面统管多个 session"的控制面设计。本报告不重复论文叙事，只把最关键的结构、流程、协议与同类格局画清楚——看完这 6 张图，整体设计应当了然于胸。</p>
+  <div class="toc">
+    <a href="#d1">① 控制面核心</a>
+    <a href="#d2">② 端到端生命周期</a>
+    <a href="#d3">③ 注意力门禁（双层过滤）</a>
+    <a href="#d4">④ 事件溯源任务账本</a>
+    <a href="#d5">⑤ 同类格局地图</a>
+    <a href="#d6">⑥ 操作系统类比</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="factstrip">
+    <div class="fact"><b>1 → N</b><span>一个 Web 面板（人看到的唯一屏）背后，是 1 个常驻 Router + N 个上下文隔离的 Worker。</span></div>
+    <div class="fact"><b>单写者</b><span>Engine 单写者 + Assignment 原子认领，杜绝并发双写——与 Mission Control 的 SQLite WAL 是同一模式。</span></div>
+    <div class="fact"><b>observe</b><span>默认"只研判不真正开工"；论文里那种主动提 PR 来自内部实例，原型要求书面规则 + observe。</span></div>
+    <div class="fact"><b>已落地</b><span>控制面骨架（面板/Router/Worker/单写者/原子认领/注意力规则）真实可跑，不是画饼。</span></div>
+  </div>
+
+  <!-- ============ D1 ============ -->
+  <section class="card" id="d1">
+    <div class="sec-head"><div class="sec-num">①</div><h2>控制面核心：一个画面，统管多个 session</h2></div>
+    <h3>人只面对一个 Agent；系统内部把"路由"和"执行"彻底分开，并独占写权。</h3>
+    <svg class="diagram" viewBox="0 0 1100 660" role="img" aria-label="控制面核心架构图">
+      <defs>
+        <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+        <marker id="ard" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f472b6"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- human + panel -->
+        <rect x="430" y="20" width="240" height="86" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="550" y="48" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">👤 HUMAN</text>
+        <text x="550" y="74" text-anchor="middle" font-size="15" font-weight="700">一个 Web 面板（唯一的屏）</text>
+        <text x="550" y="94" text-anchor="middle" fill="#93a1b5" font-size="11.5">人只在这里说话、只看这里的结果</text>
+
+        <!-- router -->
+        <rect x="380" y="150" width="340" height="92" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="550" y="180" text-anchor="middle" fill="#5b9dff" font-size="15" font-weight="800">Router · 常驻前门</text>
+        <text x="550" y="202" text-anchor="middle" fill="#93a1b5" font-size="12">只路由 · 轻模型 · 可不带 Bash</text>
+        <text x="550" y="222" text-anchor="middle" fill="#93a1b5" font-size="12">分类 / 拆分任务 / 统一汇总回人</text>
+
+        <!-- engine bar -->
+        <rect x="190" y="288" width="720" height="58" rx="12" fill="#241c0e" stroke="#f5a623" stroke-width="1.8"/>
+        <text x="550" y="312" text-anchor="middle" fill="#f5a623" font-size="14.5" font-weight="800">单写者引擎 Engine — 串行化所有写操作</text>
+        <text x="550" y="334" text-anchor="middle" fill="#93a1b5" font-size="12">原子认领 Assignment：谁先写谁占，杜绝并发双写</text>
+
+        <!-- workers -->
+        <g>
+          <rect x="60" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+          <text x="165" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #1</text>
+          <text x="165" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">上下文隔离的执行单元</text>
+          <text x="165" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">跑工具 / 改代码 / 调 API</text>
+          <text x="165" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+          <text x="165" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">（不直连人）</text>
+        </g>
+        <g>
+          <rect x="310" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+          <text x="415" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #2</text>
+          <text x="415" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">上下文隔离的执行单元</text>
+          <text x="415" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">跑工具 / 改代码 / 调 API</text>
+          <text x="415" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+          <text x="415" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">（不直连人）</text>
+        </g>
+        <g>
+          <rect x="560" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+          <text x="665" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #3</text>
+          <text x="665" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">上下文隔离的执行单元</text>
+          <text x="665" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">跑工具 / 改代码 / 调 API</text>
+          <text x="665" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+          <text x="665" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">（不直连人）</text>
+        </g>
+        <g>
+          <rect x="810" y="408" width="210" height="150" rx="12" fill="#13202b" stroke="#2dd4bf" stroke-width="1.4" stroke-dasharray="6 4"/>
+          <text x="915" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #k</text>
+          <text x="915" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">…可水平扩展</text>
+          <text x="915" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">按任务弹性增减</text>
+          <text x="915" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+        </g>
+
+        <!-- dashed boundary: one agent to human -->
+        <rect x="40" y="8" width="1020" height="600" rx="20" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="9 6" opacity=".55"/>
+        <text x="58" y="26" fill="#a78bfa" font-size="12" font-weight="700" opacity=".9">人只看到一个 Agent（内部路由+执行对人透明）</text>
+
+        <!-- connectors -->
+        <line x1="550" y1="106" x2="550" y2="150" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="550" y1="242" x2="550" y2="288" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar)"/>
+        <line x1="350" y1="346" x2="165" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="450" y1="346" x2="415" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="650" y1="346" x2="665" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="750" y1="346" x2="915" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar)"/>
+        <!-- workers report back (dashed pink) -->
+        <path d="M165,408 C 165,360 380,330 380,242" fill="none" stroke="#f472b6" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ard)"/>
+        <path d="M915,408 C 915,360 720,330 720,242" fill="none" stroke="#f472b6" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ard)"/>
+
+        <!-- left callout: attention rules -->
+        <g>
+          <rect x="40" y="588" width="430" height="64" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="56" y="610" fill="#f472b6" font-size="12.5" font-weight="700">注意力规则（写在系统里，不是 prompt）</text>
+          <text x="56" y="632" fill="#93a1b5" font-size="11.5">① 仅在被授权 / 团队规则允许时动手  ② 仅在人须决策或有可用结果时才开口</text>
+        </g>
+        <!-- right callout: consensus -->
+        <g>
+          <rect x="630" y="588" width="430" height="64" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="646" y="610" fill="#f5a623" font-size="12.5" font-weight="700">共识模式（独立重发）</text>
+          <text x="646" y="632" fill="#93a1b5" font-size="11.5">Engine 单写者 + Assignment 原子认领 = Mission Control 的 SQLite WAL 单写者 + 原子 UPDATE 认领</text>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>核心增量：</b>把"人面对 Agent"与"系统跑 session"解耦。Router 是常驻的全局协调者、只路由不执行；Worker 是上下文隔离的执行单元、只向 Router 汇报；Engine 用单写者 + 原子认领独占写权。人看到的永远是一个统一的 Agent。</div>
+  </section>
+
+  <!-- ============ D2 ============ -->
+  <section class="card" id="d2">
+    <div class="sec-head"><div class="sec-num">②</div><h2>端到端生命周期：一条消息如何变成 N 个隔离 session 的结果</h2></div>
+    <h3>人发一句话 → Router 拆分 → 多个 Worker 并行在隔离上下文里干 → Router 汇总成一条统一流回面板。</h3>
+    <svg class="diagram" viewBox="0 0 1100 540" role="img" aria-label="端到端生命周期图">
+      <defs>
+        <marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- human -->
+        <rect x="30" y="220" width="150" height="100" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="105" y="262" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">👤 HUMAN</text>
+        <text x="105" y="288" text-anchor="middle" font-size="13">一句话</text>
+        <text x="105" y="308" text-anchor="middle" fill="#93a1b5" font-size="11.5">"把 issue #12 修了"</text>
+
+        <!-- router classify -->
+        <rect x="220" y="200" width="170" height="120" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="305" y="240" text-anchor="middle" fill="#5b9dff" font-size="14" font-weight="800">Router</text>
+        <text x="305" y="262" text-anchor="middle" fill="#93a1b5" font-size="12">分类 / 拆分</text>
+        <text x="305" y="284" text-anchor="middle" fill="#93a1b5" font-size="12">生成任务树</text>
+        <text x="305" y="306" text-anchor="middle" fill="#93a1b5" font-size="11.5">估依赖 &amp; 并行度</text>
+
+        <!-- tasks -->
+        <rect x="430" y="90" width="120" height="46" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="490" y="118" text-anchor="middle" font-size="13">Task A · 复现</text>
+        <rect x="430" y="225" width="120" height="46" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="490" y="253" text-anchor="middle" font-size="13">Task B · 修根因</text>
+        <rect x="430" y="360" width="120" height="46" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="490" y="388" text-anchor="middle" font-size="13">Task C · 补测试</text>
+
+        <!-- workers -->
+        <rect x="600" y="70" width="160" height="86" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="680" y="104" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Worker #A</text>
+        <text x="680" y="126" text-anchor="middle" fill="#93a1b5" font-size="11.5">隔离上下文</text>
+        <rect x="600" y="205" width="160" height="86" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="680" y="239" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Worker #B</text>
+        <text x="680" y="261" text-anchor="middle" fill="#93a1b5" font-size="11.5">隔离上下文</text>
+        <rect x="600" y="340" width="160" height="86" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="680" y="374" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Worker #C</text>
+        <text x="680" y="396" text-anchor="middle" fill="#93a1b5" font-size="11.5">隔离上下文</text>
+
+        <!-- unify router -->
+        <rect x="810" y="200" width="160" height="120" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="890" y="240" text-anchor="middle" fill="#5b9dff" font-size="14" font-weight="800">Router 汇总</text>
+        <text x="890" y="262" text-anchor="middle" fill="#93a1b5" font-size="11.5">单写者串行化写</text>
+        <text x="890" y="284" text-anchor="middle" fill="#93a1b5" font-size="11.5">统一成一条流</text>
+        <text x="890" y="306" text-anchor="middle" fill="#93a1b5" font-size="11.5">去重 / 排序</text>
+
+        <!-- panel back to human -->
+        <rect x="1000" y="220" width="80" height="100" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="1040" y="262" text-anchor="middle" fill="#a78bfa" font-size="12" font-weight="700">面板</text>
+        <text x="1040" y="286" text-anchor="middle" font-size="11.5">统一流</text>
+        <text x="1040" y="306" text-anchor="middle" fill="#93a1b5" font-size="10.5">人只看这</text>
+
+        <!-- connectors -->
+        <line x1="180" y1="270" x2="220" y2="270" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar2)"/>
+        <line x1="390" y1="248" x2="430" y2="113" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="390" y1="270" x2="430" y2="248" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="390" y1="292" x2="430" y2="383" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="550" y1="113" x2="600" y2="113" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="550" y1="248" x2="600" y2="248" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="550" y1="383" x2="600" y2="383" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="760" y1="113" x2="810" y2="248" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="760" y1="248" x2="810" y2="260" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="760" y1="383" x2="810" y2="292" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar2)"/>
+        <line x1="970" y1="270" x2="1000" y2="270" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar2)"/>
+
+        <!-- isolation boundary -->
+        <rect x="588" y="58" width="184" height="380" rx="14" fill="none" stroke="#2dd4bf" stroke-width="1.3" stroke-dasharray="7 5" opacity=".5"/>
+        <text x="680" y="50" text-anchor="middle" fill="#2dd4bf" font-size="11.5" font-weight="700" opacity=".9">上下文隔离边界（互不污染）</text>
+
+        <!-- observe/auto note -->
+        <g>
+          <rect x="600" y="450" width="370" height="56" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="616" y="472" fill="#f472b6" font-size="12.5" font-weight="700">每个 Worker 落笔前过注意力门禁</text>
+          <text x="616" y="494" fill="#93a1b5" font-size="11.5">默认 observe（只研判不干）；被授权才 auto 真正开工 → 见 ③</text>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>关键落点：</b>并行来自"拆分 + 隔离上下文"，一致性来自"Router 单写者串行化写"。人不必关心背后有几个 session、谁先谁后——只收到一条去重排序后的统一流。</div>
+  </section>
+
+  <!-- ============ D3 ============ -->
+  <section class="card" id="d3">
+    <div class="sec-head"><div class="sec-num">③</div><h2>注意力门禁：双层过滤，决定"该不该接、接了怎么干"</h2></div>
+    <h3>Layer 1 是硬门禁（策略/授权），Layer 2 是软研判（模型判断）。被订阅的线程走快路径绕过门禁，但不授新权。</h3>
+    <svg class="diagram" viewBox="0 0 1100 660" role="img" aria-label="注意力门禁双层过滤图">
+      <defs>
+        <marker id="ar3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+        <marker id="arg" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#ff6b6b"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- incoming -->
+        <rect x="430" y="20" width="240" height="56" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="550" y="54" text-anchor="middle" font-size="14" font-weight="700">进入信号（issue / PR / 消息 / 定时）</text>
+
+        <!-- layer1 gate -->
+        <rect x="60" y="150" width="470" height="200" rx="14" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="295" y="180" text-anchor="middle" fill="#5b9dff" font-size="15" font-weight="800">Layer 1 · 策略门禁（硬）</text>
+        <text x="90" y="212" fill="#93a1b5" font-size="12.5">输入三选一，任一命中即放行：</text>
+        <text x="90" y="238" font-size="13">• 白名单 / 显式指令</text>
+        <text x="90" y="262" font-size="13">• 团队书面规则</text>
+        <text x="90" y="286" font-size="13">• 授权书 Mandate</text>
+        <rect x="90" y="312" width="410" height="26" rx="8" fill="#0f1a2b" stroke="#2e3b52"/>
+        <text x="295" y="330" text-anchor="middle" fill="#93a1b5" font-size="11.5">未命中 → 拒绝，仅记录（不动作）</text>
+
+        <!-- layer2 assess -->
+        <rect x="570" y="150" width="470" height="200" rx="14" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="805" y="180" text-anchor="middle" fill="#2dd4bf" font-size="15" font-weight="800">Layer 2 · 模型研判（软）</text>
+        <text x="600" y="212" fill="#93a1b5" font-size="12.5">评估"该不该接、怎么接"：</text>
+        <text x="600" y="238" font-size="13">• 信号是否真相关</text>
+        <text x="600" y="262" font-size="13">• 是否在授权范围</text>
+        <text x="600" y="286" font-size="13">• 该 observe 还是 auto</text>
+        <rect x="600" y="312" width="410" height="26" rx="8" fill="#0c2b27" stroke="#2e3b52"/>
+        <text x="805" y="330" text-anchor="middle" fill="#93a1b5" font-size="11.5">产出 Decision 记录（observe / auto）</text>
+
+        <!-- decision diamonds -->
+        <polygon points="295,400 345,440 295,480 245,440" fill="#241c0e" stroke="#f5a623" stroke-width="1.6"/>
+        <text x="295" y="444" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">授权?</text>
+        <polygon points="805,400 855,440 805,480 755,440" fill="#241c0e" stroke="#f5a623" stroke-width="1.6"/>
+        <text x="805" y="444" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">该接?</text>
+
+        <!-- subscribe fast path -->
+        <rect x="430" y="400" width="240" height="56" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="6 4"/>
+        <text x="550" y="424" text-anchor="middle" font-size="12.5" font-weight="700">订阅快路径</text>
+        <text x="550" y="444" text-anchor="middle" fill="#93a1b5" font-size="11">被订阅线程消息 → 绕过门禁直达工单</text>
+
+        <!-- outcomes -->
+        <rect x="60" y="540" width="220" height="70" rx="12" fill="#241015" stroke="#ff6b6b" stroke-width="1.6"/>
+        <text x="170" y="572" text-anchor="middle" fill="#ff6b6b" font-size="13" font-weight="700">拒绝 · 仅记录</text>
+        <text x="170" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">不动作、不留痕污染</text>
+
+        <rect x="320" y="540" width="220" height="70" rx="12" fill="#0c2b27" stroke="#34d399" stroke-width="1.6"/>
+        <text x="430" y="572" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">observe</text>
+        <text x="430" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">只研判、只记录 Decision</text>
+
+        <rect x="580" y="540" width="220" height="70" rx="12" fill="#0c2b27" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="690" y="572" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="700">auto（真开工）</text>
+        <text x="690" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">被授权后真正执行</text>
+
+        <rect x="840" y="540" width="220" height="70" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="950" y="572" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="700">统一回 Router</text>
+        <text x="950" y="594" text-anchor="middle" fill="#93a1b5" font-size="11">去重汇总给人</text>
+
+        <!-- connectors -->
+        <line x1="550" y1="76" x2="295" y2="150" stroke="#93a1b5" stroke-width="1.8" marker-end="url(#ar3)"/>
+        <line x1="550" y1="76" x2="805" y2="150" stroke="#93a1b5" stroke-width="1.8" marker-end="url(#ar3)"/>
+        <line x1="295" y1="350" x2="295" y2="400" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar3)"/>
+        <line x1="805" y1="350" x2="805" y2="400" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#ar3)"/>
+        <line x1="295" y1="480" x2="170" y2="540" stroke="#ff6b6b" stroke-width="1.6" marker-end="url(#arg)"/>
+        <line x1="295" y1="440" x2="430" y2="440" stroke="#93a1b5" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <line x1="805" y1="440" x2="690" y2="540" stroke="#2dd4bf" stroke-width="1.6" marker-end="url(#ar3)"/>
+        <line x1="550" y1="456" x2="430" y2="540" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#ar3)"/>
+        <line x1="430" y1="570" x2="690" y2="572" stroke="#93a1b5" stroke-width="1.3" stroke-dasharray="4 4"/>
+        <line x1="690" y1="572" x2="840" y2="572" stroke="#93a1b5" stroke-width="1.3" stroke-dasharray="4 4"/>
+
+        <!-- legend attention rules -->
+        <g>
+          <rect x="60" y="624" width="1000" height="0" rx="0" fill="none"/>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>设计要点：</b>门禁是"硬"的（只认白名单/规则/授权书，挡掉一切未授权动作），研判是"软"的（模型判断相关性与接法）。默认全走 <b>observe</b>——只把 Decision 记下来，人看完再决定开 auto。这把"主动性"关进了可审计的笼子里，所以论文里那种"主动提 bug 修复 PR"在原型里必须书面规则 + observe 默认才可能发生。</div>
+  </section>
+
+  <!-- ============ D4 ============ -->
+  <section class="card" id="d4">
+    <div class="sec-head"><div class="sec-num">④</div><h2>事件溯源任务账本：每个任务都是一条可重放、可审计的 JSONL</h2></div>
+    <h3>任务不是状态机里的一个字段，而是一串 append-only 事件。任意时刻都能重放还原现场、追责、回滚。</h3>
+    <svg class="diagram" viewBox="0 0 1100 380" role="img" aria-label="事件溯源任务账本生命周期图">
+      <defs>
+        <marker id="ar4" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- nodes -->
+        <g>
+          <rect x="20" y="120" width="110" height="70" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+          <text x="75" y="150" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="800">Create</text>
+          <text x="75" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">建任务</text>
+        </g>
+        <g>
+          <rect x="155" y="120" width="110" height="70" rx="10" fill="#241c0e" stroke="#f5a623" stroke-width="1.6"/>
+          <text x="210" y="150" text-anchor="middle" fill="#f5a623" font-size="13" font-weight="800">Assign</text>
+          <text x="210" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">原子认领</text>
+        </g>
+        <g>
+          <rect x="290" y="120" width="110" height="70" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+          <text x="345" y="150" text-anchor="middle" fill="#2dd4bf" font-size="13" font-weight="800">Execute</text>
+          <text x="345" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">Worker 干</text>
+        </g>
+        <g>
+          <rect x="425" y="120" width="110" height="70" rx="10" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+          <text x="480" y="150" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="800">Review</text>
+          <text x="480" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">评审</text>
+        </g>
+        <g>
+          <rect x="560" y="120" width="110" height="70" rx="10" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+          <text x="615" y="150" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="800">Accept</text>
+          <text x="615" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">验收</text>
+        </g>
+        <g>
+          <rect x="695" y="120" width="110" height="70" rx="10" fill="#0c2b27" stroke="#34d399" stroke-width="1.6"/>
+          <text x="750" y="150" text-anchor="middle" fill="#34d399" font-size="13" font-weight="800">Deliver</text>
+          <text x="750" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">交付</text>
+        </g>
+        <g>
+          <rect x="830" y="120" width="120" height="70" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+          <text x="890" y="150" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="800">Close</text>
+          <text x="890" y="172" text-anchor="middle" fill="#93a1b5" font-size="10.5">关闭 / 取消</text>
+        </g>
+        <g>
+          <rect x="965" y="120" width="120" height="70" rx="10" fill="#241015" stroke="#ff6b6b" stroke-width="1.4" stroke-dasharray="6 4"/>
+          <text x="1025" y="150" text-anchor="middle" fill="#ff6b6b" font-size="12.5" font-weight="800">Cancel</text>
+          <text x="1025" y="172" text-anchor="middle" fill="#93a1b5" font-size="10">可中途撤</text>
+        </g>
+
+        <!-- main flow arrows -->
+        <line x1="130" y1="155" x2="155" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="265" y1="155" x2="290" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="400" y1="155" x2="425" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="535" y1="155" x2="560" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="670" y1="155" x2="695" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="805" y1="155" x2="830" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+        <line x1="950" y1="155" x2="965" y2="155" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar4)"/>
+
+        <!-- rework loop -->
+        <path d="M480,190 C 480,250 345,250 345,190" fill="none" stroke="#f472b6" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#ar4)"/>
+        <text x="412" y="262" text-anchor="middle" fill="#f472b6" font-size="11.5" font-weight="700">Rework（评审不过 → 回 Execute，记 attempts）</text>
+
+        <!-- event ledger panel -->
+        <rect x="20" y="300" width="1065" height="64" rx="12" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="36" y="324" fill="#2dd4bf" font-size="12.5" font-weight="700">事件溯源 JSONL 账本（每个节点 = 一条 append-only 事件）</text>
+        <text x="36" y="348" fill="#93a1b5" font-size="11.5">task tree · owner · attempts · commits · review · rework · acceptance · delivery · cancel → 可重放还原现场 / 可审计追责 / 可定点回滚</text>
+      </g>
+    </svg>
+    <div class="takeaway"><b>为什么是事件而非状态：</b>把"任务进展"记成一串不可变事件，而不是一个会被覆盖的字段。好处是——出事能重放（知道哪一步、谁、为什么），能审计（每条动作有 owner 与依据），能回滚（重放到某个事件之前）。这也是 dsh-super-agent 插件相对原型仓库多出来的那一层封装。</div>
+  </section>
+
+  <!-- ============ D5 ============ -->
+  <section class="card" id="d5">
+    <div class="sec-head"><div class="sec-num">⑤</div><h2>同类格局地图：2026 年的控制面 / Agent Runtime 工具</h2></div>
+    <h3>两个维度定位：纵轴"原生控制面 vs 外挂 bolt-on"，横轴"是否有单写者 / 原子认领的共识机制"。右上是这一波的正解。</h3>
+    <svg class="diagram" viewBox="0 0 1100 640" role="img" aria-label="同类格局地图">
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- axes -->
+        <line x1="120" y1="540" x2="1000" y2="540" stroke="#3a4a63" stroke-width="2"/>
+        <line x1="120" y1="60" x2="120" y2="540" stroke="#3a4a63" stroke-width="2"/>
+        <text x="560" y="588" text-anchor="middle" fill="#93a1b5" font-size="13">→ 单写者 / 原子认领的共识机制（右强）</text>
+        <text x="46" y="300" text-anchor="middle" fill="#93a1b5" font-size="13" transform="rotate(-90 46 300)">原生控制面（上） ↑ / 外挂 bolt-on（下）</text>
+
+        <!-- quadrant tint -->
+        <rect x="560" y="60" width="440" height="480" fill="rgba(45,212,191,.05)"/>
+        <rect x="120" y="300" width="880" height="240" fill="rgba(91,157,255,.04)"/>
+
+        <!-- plotted tools -->
+        <g>
+          <circle cx="800" cy="150" r="9" fill="#2dd4bf"/>
+          <text x="818" y="146" font-size="13.5" font-weight="800" fill="#2dd4bf">dsh-superagent</text>
+          <text x="818" y="164" font-size="11" fill="#93a1b5">原生控制面 · 插件化 · 单写者+原子认领</text>
+        </g>
+        <g>
+          <circle cx="740" cy="210" r="9" fill="#34d399"/>
+          <text x="758" y="206" font-size="13.5" font-weight="800" fill="#34d399">Mission Control</text>
+          <text x="758" y="224" font-size="11" fill="#93a1b5">~5.2k★ · 零依赖 · SQLite WAL 单写者</text>
+        </g>
+        <g>
+          <circle cx="855" cy="250" r="9" fill="#a78bfa"/>
+          <text x="873" y="246" font-size="13.5" font-weight="800" fill="#a78bfa">KiroCrew</text>
+          <text x="873" y="264" font-size="11" fill="#93a1b5">常驻队友 · claim ledger · needs-human 标签</text>
+        </g>
+        <g>
+          <circle cx="300" cy="430" r="9" fill="#5b9dff"/>
+          <text x="318" y="426" font-size="13.5" font-weight="800" fill="#5b9dff">amux</text>
+          <text x="318" y="444" font-size="11" fill="#93a1b5">MIT · 外挂 Claude/Codex/Gemini · 按 session</text>
+        </g>
+        <g>
+          <circle cx="430" cy="480" r="9" fill="#5b9dff"/>
+          <text x="448" y="476" font-size="13.5" font-weight="800" fill="#5b9dff">Ashlr AO</text>
+          <text x="448" y="494" font-size="11" fill="#93a1b5">本地优先的命令行指挥中心（bolt-on）</text>
+        </g>
+        <g>
+          <circle cx="620" cy="400" r="9" fill="#f5a623"/>
+          <text x="638" y="396" font-size="13.5" font-weight="800" fill="#f5a623">GitHub Copilot</text>
+          <text x="638" y="414" font-size="11" fill="#93a1b5">云端 agent 自动化（平台内闭环）</text>
+        </g>
+        <g>
+          <circle cx="240" cy="500" r="9" fill="#ff6b6b"/>
+          <text x="258" y="496" font-size="13.5" font-weight="800" fill="#ff6b6b">Kodiak</text>
+          <text x="258" y="514" font-size="11" fill="#93a1b5">PR 自动合并 bot · 非 coding agent</text>
+        </g>
+
+        <!-- legend -->
+        <g>
+          <rect x="660" y="540" width="420" height="86" rx="12" fill="#1b2435" stroke="#2e3b52"/>
+          <text x="676" y="564" fill="#2dd4bf" font-size="12.5" font-weight="700">读图：右上 = 原生 + 单写者共识（这一波正解）</text>
+          <text x="676" y="586" fill="#93a1b5" font-size="11">dsh / Mission Control / KiroCrew 都落到右上，且独立重发了同一共识模式；</text>
+          <text x="676" y="608" fill="#93a1b5" font-size="11">amux / Ashlr 是"外挂"，不重新发明写者；Kodiak 甚至不是 coding agent。</text>
+        </g>
+      </g>
+    </svg>
+    <div class="takeaway"><b>格局判断：</b>2026 年"用一个界面管一队 agent"的控制面思路正在收敛。有意思的是——dsh 的 Engine 单写者 + Assignment 原子认领，与 Mission Control 的 SQLite WAL 单写者 + 原子 UPDATE 认领，是<b>同一模式被独立重发</b>。说明"谁先写谁占、杜绝双写"已是控制面的基础共识，而非某家的独门秘技。</div>
+  </section>
+
+  <!-- ============ D6 ============ -->
+  <section class="card" id="d6">
+    <div class="sec-head"><div class="sec-num">⑥</div><h2>操作系统类比：把"多 agent 调度"翻译成你熟悉的内核术语</h2></div>
+    <h3>社区最买账的一帧解读——一旦套进 OS 概念，很多设计决策立刻说得通。</h3>
+    <svg class="diagram" viewBox="0 0 1100 420" role="img" aria-label="操作系统类比图">
+      <defs>
+        <marker id="ar6" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+      </defs>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+
+        <!-- left: OS concept -->
+        <text x="40" y="40" fill="#5b9dff" font-size="14" font-weight="800">操作系统概念</text>
+        <rect x="40" y="60" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="84" font-size="13" font-weight="700">中断控制器 / 线程池</text>
+        <text x="60" y="104" fill="#93a1b5" font-size="11.5">统一收中断、派发线程</text>
+
+        <rect x="40" y="140" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="164" font-size="13" font-weight="700">CPU 缓存（L1/L2）</text>
+        <text x="60" y="184" fill="#93a1b5" font-size="11.5">命中留、溢出吐回主存</text>
+
+        <rect x="40" y="220" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="244" font-size="13" font-weight="700">分支预测</text>
+        <text x="60" y="264" fill="#93a1b5" font-size="11.5">先干后证、错了回滚</text>
+
+        <rect x="40" y="300" width="300" height="56" rx="10" fill="#132033" stroke="#5b9dff" stroke-width="1.6"/>
+        <text x="60" y="324" font-size="13" font-weight="700">外部控制循环（watchdog）</text>
+        <text x="60" y="344" fill="#93a1b5" font-size="11.5">周期性看一眼、必要时介入</text>
+
+        <rect x="40" y="380" width="300" height="0" rx="0" fill="none"/>
+
+        <!-- arrows to right -->
+        <line x1="340" y1="88" x2="560" y2="120" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+        <line x1="340" y1="168" x2="560" y2="200" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+        <line x1="340" y1="248" x2="560" y2="280" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+        <line x1="340" y1="328" x2="560" y2="360" stroke="#93a1b5" stroke-width="2" marker-end="url(#ar6)"/>
+
+        <!-- right: dsh concept -->
+        <text x="580" y="40" fill="#2dd4bf" font-size="14" font-weight="800">dsh-superagent 对应物</text>
+        <rect x="580" y="60" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="84" font-size="13" font-weight="700">Router（常驻前门）</text>
+        <text x="600" y="104" fill="#93a1b5" font-size="11.5">统一收信号、派发 Worker</text>
+
+        <rect x="580" y="140" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="164" font-size="13" font-weight="700">Inline &amp; Spill（上下文留 / 溢）</text>
+        <text x="600" y="184" fill="#93a1b5" font-size="11.5">热点上下文留 Worker，溢出回主会话</text>
+
+        <rect x="580" y="220" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="244" font-size="13" font-weight="700">Speculative execution（投机执行）</text>
+        <text x="600" y="264" fill="#93a1b5" font-size="11.5">先试后证、不对就回滚（默认关）</text>
+
+        <rect x="580" y="300" width="480" height="56" rx="10" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.6"/>
+        <text x="600" y="324" font-size="13" font-weight="700">Watchdog（看门狗）</text>
+        <text x="600" y="344" fill="#93a1b5" font-size="11.5">每小时轮询、必要时介入（原型仅检查）</text>
+
+        <!-- footer note -->
+        <rect x="40" y="384" width="1020" height="0" rx="0" fill="none"/>
+      </g>
+    </svg>
+    <div class="takeaway"><b>一句话记忆点：</b>把 dsh 想成"为一个 Agent 团队写的内核"——Router 是中断控制器，Inline&amp;Spill 是缓存策略，speculative 是分支预测，Watchdog 是外部控制循环。这套类比让"为什么这样设计"从玄学变成常识。</div>
+  </section>
+
+  <footer>
+    配套报告：<a href="dsh-superagent-intro-zh.html">dsh-superagent 详解（中文）</a> · <a href="dsh-superagent-intro-en.html">dsh-superagent Explained（EN）</a>　|　图均为信息密度优先设计，建议全屏查看。
+  </footer>
+</div>
+</body>
+</html>

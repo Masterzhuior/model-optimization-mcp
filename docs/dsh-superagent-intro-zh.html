@@ -165,50 +165,75 @@
   <p>它最值钱的不是"能自动出 PR"——那套 2023 年 Sweep 就有了。真正的新东西是一个<b>控制面（control plane）思路</b>：一个人同一时间只能跟 3–5 个活跃会话，开 N 个 tab 各自跑会切到崩溃、全挤一个 session 长任务又卡住新消息。dsh-superagent 用<b>常驻的 Router 总前台 + Web 面板</b>当唯一界面，后面挂一堆<b>上下文隔离的 Worker 会话</b>；系统接管"会话怎么拆、上下文怎么同步"，人始终只看到一个 Agent，只在需要拍板或用结果时才被叫到。</p>
 
   <div class="fig">
-    <svg viewBox="0 0 680 400" role="img" aria-label="控制面：一个画面统管多个 session">
+    <svg viewBox="0 0 1100 660" role="img" aria-label="控制面核心架构图：一个画面统管多个 session">
       <defs>
-        <marker id="cp" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6f8099"/></marker>
-        <style>
-          .ct{fill:#e7edf5;font-size:13.5px;font-weight:700}
-          .cd{fill:#8b97a8;font-size:10.5px}
-          .gl{fill:#7f8ea6;font-size:10.5px}
-          .box{fill:#141b29;stroke:#2e3b52;stroke-width:1.4}
-          .boxp{fill:#16263a;stroke:#a78bfa;stroke-width:1.6}
-          .boxt{fill:#141b29;stroke:#2dd4bf;stroke-width:1.4}
-        </style>
+        <marker id="arz" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#93a1b5"/></marker>
+        <marker id="ardz" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f472b6"/></marker>
       </defs>
-      <rect class="box" x="40" y="100" width="130" height="60" rx="10"/>
-      <text class="ct" x="105" y="124" text-anchor="middle">你（人）</text>
-      <text class="cd" x="105" y="144" text-anchor="middle">Web 面板 · 唯一界面</text>
-      <rect class="boxp" x="255" y="108" width="170" height="64" rx="10"/>
-      <text class="ct" x="340" y="130" text-anchor="middle">Router 总前台</text>
-      <text class="cd" x="340" y="150" text-anchor="middle">只分派·不执行·轻量模型</text>
-      <rect class="boxt" x="520" y="48" width="140" height="56" rx="10"/>
-      <text class="ct" x="590" y="70" text-anchor="middle">Worker 会话 A</text>
-      <text class="cd" x="590" y="90" text-anchor="middle">复现问题</text>
-      <rect class="boxt" x="520" y="124" width="140" height="56" rx="10"/>
-      <text class="ct" x="590" y="146" text-anchor="middle">Worker 会话 B</text>
-      <text class="cd" x="590" y="166" text-anchor="middle">代码审查</text>
-      <rect class="boxt" x="520" y="200" width="140" height="56" rx="10"/>
-      <text class="ct" x="590" y="222" text-anchor="middle">Worker 会话 C</text>
-      <text class="cd" x="590" y="242" text-anchor="middle">功能开发</text>
-      <text class="gl" x="520" y="280">彼此隔离·互不通信·只向 Router 汇报</text>
-      <line x1="170" y1="138" x2="252" y2="132" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
-      <text class="gl" x="190" y="126">请求/事件</text>
-      <line x1="425" y1="128" x2="516" y2="74" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
-      <line x1="425" y1="142" x2="516" y2="150" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
-      <line x1="425" y1="156" x2="516" y2="224" stroke="#6f8099" stroke-width="1.6" marker-end="url(#cp)"/>
-      <line x1="516" y1="84" x2="427" y2="134" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
-      <line x1="516" y1="160" x2="427" y2="146" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
-      <line x1="516" y1="226" x2="427" y2="158" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
-      <line x1="255" y1="160" x2="172" y2="150" stroke="#8b97a8" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#cp)"/>
-      <text class="gl" x="188" y="178">统一回复一次</text>
-      <rect class="box" x="40" y="300" width="620" height="78" rx="12"/>
-      <text class="ct" x="60" y="324" style="font-size:12.5px">为什么不用两种 naïve 方案</text>
-      <text class="cd" x="60" y="346">① N 个 tab 各自 session → 人切到崩溃、上下文串线；② 全挤 1 个 session → 长任务卡住新消息</text>
-      <text class="cd" x="60" y="366">Router/Worker 把会话拆分与上下文同步从人手上接走——人只看到一个 Agent</text>
+      <g font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif" font-size="14" fill="#e7edf5">
+        <rect x="430" y="20" width="240" height="86" rx="12" fill="#1b2435" stroke="#a78bfa" stroke-width="1.6"/>
+        <text x="550" y="48" text-anchor="middle" fill="#a78bfa" font-size="13" font-weight="700">👤 HUMAN</text>
+        <text x="550" y="74" text-anchor="middle" font-size="15" font-weight="700">一个 Web 面板（唯一的屏）</text>
+        <text x="550" y="94" text-anchor="middle" fill="#93a1b5" font-size="11.5">人只在这里说话、只看这里的结果</text>
+
+        <rect x="380" y="150" width="340" height="92" rx="12" fill="#132033" stroke="#5b9dff" stroke-width="1.8"/>
+        <text x="550" y="180" text-anchor="middle" fill="#5b9dff" font-size="15" font-weight="800">Router · 常驻前门</text>
+        <text x="550" y="202" text-anchor="middle" fill="#93a1b5" font-size="12">只路由 · 轻模型 · 可不带 Bash</text>
+        <text x="550" y="222" text-anchor="middle" fill="#93a1b5" font-size="12">分类 / 拆分任务 / 统一汇总回人</text>
+
+        <rect x="190" y="288" width="720" height="58" rx="12" fill="#241c0e" stroke="#f5a623" stroke-width="1.8"/>
+        <text x="550" y="312" text-anchor="middle" fill="#f5a623" font-size="14.5" font-weight="800">单写者引擎 Engine — 串行化所有写操作</text>
+        <text x="550" y="334" text-anchor="middle" fill="#93a1b5" font-size="12">原子认领 Assignment：谁先写谁占，杜绝并发双写</text>
+
+        <rect x="60" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="165" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #1</text>
+        <text x="165" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">上下文隔离的执行单元</text>
+        <text x="165" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">跑工具 / 改代码 / 调 API</text>
+        <text x="165" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+        <text x="165" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">（不直连人）</text>
+
+        <rect x="310" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="415" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #2</text>
+        <text x="415" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">上下文隔离的执行单元</text>
+        <text x="415" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">跑工具 / 改代码 / 调 API</text>
+        <text x="415" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+        <text x="415" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">（不直连人）</text>
+
+        <rect x="560" y="408" width="210" height="150" rx="12" fill="#0f2723" stroke="#2dd4bf" stroke-width="1.8"/>
+        <text x="665" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #3</text>
+        <text x="665" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">上下文隔离的执行单元</text>
+        <text x="665" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">跑工具 / 改代码 / 调 API</text>
+        <text x="665" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+        <text x="665" y="542" text-anchor="middle" fill="#93a1b5" font-size="11.5">（不直连人）</text>
+
+        <rect x="810" y="408" width="210" height="150" rx="12" fill="#13202b" stroke="#2dd4bf" stroke-width="1.4" stroke-dasharray="6 4"/>
+        <text x="915" y="446" text-anchor="middle" fill="#2dd4bf" font-size="14" font-weight="800">Worker-Session #k</text>
+        <text x="915" y="472" text-anchor="middle" fill="#93a1b5" font-size="12">…可水平扩展</text>
+        <text x="915" y="494" text-anchor="middle" fill="#93a1b5" font-size="12">按任务弹性增减</text>
+        <text x="915" y="520" text-anchor="middle" fill="#93a1b5" font-size="11.5">只汇报给 Router</text>
+
+        <rect x="40" y="8" width="1020" height="600" rx="20" fill="none" stroke="#a78bfa" stroke-width="1.4" stroke-dasharray="9 6" opacity=".55"/>
+        <text x="58" y="26" fill="#a78bfa" font-size="12" font-weight="700" opacity=".9">人只看到一个 Agent（内部路由+执行对人透明）</text>
+
+        <line x1="550" y1="106" x2="550" y2="150" stroke="#93a1b5" stroke-width="2" marker-end="url(#arz)"/>
+        <line x1="550" y1="242" x2="550" y2="288" stroke="#93a1b5" stroke-width="2" marker-end="url(#arz)"/>
+        <line x1="350" y1="346" x2="165" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#arz)"/>
+        <line x1="450" y1="346" x2="415" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#arz)"/>
+        <line x1="650" y1="346" x2="665" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#arz)"/>
+        <line x1="750" y1="346" x2="915" y2="408" stroke="#93a1b5" stroke-width="1.6" marker-end="url(#arz)"/>
+        <path d="M165,408 C 165,360 380,330 380,242" fill="none" stroke="#f472b6" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ardz)"/>
+        <path d="M915,408 C 915,360 720,330 720,242" fill="none" stroke="#f472b6" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ardz)"/>
+
+        <rect x="40" y="588" width="430" height="64" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="56" y="610" fill="#f472b6" font-size="12.5" font-weight="700">注意力规则（写在系统里，不是 prompt）</text>
+        <text x="56" y="632" fill="#93a1b5" font-size="11.5">① 仅在被授权 / 团队规则允许时动手  ② 仅在人须决策或有可用结果时才开口</text>
+
+        <rect x="630" y="588" width="430" height="64" rx="10" fill="#1b2435" stroke="#2e3b52"/>
+        <text x="646" y="610" fill="#f5a623" font-size="12.5" font-weight="700">共识模式（独立重发）</text>
+        <text x="646" y="632" fill="#93a1b5" font-size="11.5">Engine 单写者 + Assignment 原子认领 = Mission Control 的 SQLite WAL 单写者 + 原子 UPDATE 认领</text>
+      </g>
     </svg>
-    <figcaption>真正的增量不是"issue 变 PR"，而是这套控制面：一个界面统管多个并发 session。</figcaption>
+    <figcaption>真正的增量不是"issue 变 PR"，而是这套<b>控制面</b>：一个界面统管多个并发 session。更完整的高密度图解（生命周期 / 注意力门禁 / 事件溯源账本 / 同类格局 / OS 类比）见 <a href="dsh-superagent-atlas-zh.html">dsh-superagent 架构图解 →</a></figcaption>
   </div>
 
   <p style="margin-top:20px">把这个抽象思路落到一个仓库里，就是大家常说的"issue→PR"流水线——但那只是控制面的<b>执行层</b>。你（或团队里被授权的人）在 Issue 评论里 <span class="kbd">@agent 帮我修下这个 bug</span>，它就去自己的目录里拉代码、改、验证，然后把一个 PR 推回同一个 Issue。中间基本不烦你——直到它需要你拍板，或活干完了。</p>
