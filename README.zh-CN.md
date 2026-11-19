@@ -32,6 +32,8 @@
   <a href="docs/tool-reference.md">工具清单</a>
   ·
   <a href="docs/agent-skill-pack.md">Agent Skills</a>
+  ·
+  <a href="docs/multi-team-skill-agent-integration-guide.md">跨团队整合架构指南</a>
 </p>
 
 <p align="center">
