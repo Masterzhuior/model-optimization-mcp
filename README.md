@@ -33,7 +33,7 @@
   ·
   <a href="docs/agent-skill-pack.md">Agent Skills</a>
   ·
-  <a href="docs/multi-team-skill-agent-integration-guide.md">Multi-Team Integration Guide</a>
+  <a href="docs/model_onboarding_engineering_environment.html">Engineering Environment</a>
 </p>
 
 <p align="center">

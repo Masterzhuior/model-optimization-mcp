@@ -33,7 +33,7 @@
   ·
   <a href="docs/agent-skill-pack.md">Agent Skills</a>
   ·
-  <a href="docs/multi-team-skill-agent-integration-guide.md">跨团队整合架构指南</a>
+  <a href="docs/model_onboarding_engineering_environment.html">模型接入工程环境研究</a>
 </p>
 
 <p align="center">
